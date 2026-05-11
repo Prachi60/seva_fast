@@ -11,7 +11,7 @@ import {
  * DeliveryOtpDisplay Component
  * 
  * Displays the proximity-based delivery OTP to the customer when the delivery person
- * arrives within 0-120m of the delivery location.
+ * arrives within 0-300m of the delivery location.
  * 
  * Features:
  * - Real-time OTP display via Socket.IO
@@ -206,7 +206,7 @@ const DeliveryOtpDisplay = ({ orderId, checkoutGroupId = null }) => {
                 Delivery Partner Nearby
               </p>
               <p className="text-xs text-brand-700">
-                Within 0-120 meters of your location
+                Within 0-300 meters of your location
               </p>
             </div>
           </div>

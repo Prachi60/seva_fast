@@ -774,6 +774,7 @@ export const generateDeliveryOtp = async (req, res) => {
             if (result.error.includes('proximity') || result.error.includes('distance')) {
                 statusCode = 403;
                 errorCode = "PROXIMITY_OUT_OF_RANGE";
+                console.warn(`[generateDeliveryOtp] Proximity check failed for order ${order.orderId}: ${result.error}`);
             } else if (result.error.includes('not found')) {
                 statusCode = 404;
                 errorCode = "ORDER_NOT_FOUND";
@@ -786,7 +787,11 @@ export const generateDeliveryOtp = async (req, res) => {
                 error: {
                     code: errorCode,
                     ...(result.errorCode ? { subCode: result.errorCode } : {}),
-                    message: result.error
+                    message: result.error,
+                    details: {
+                        currentDistance: result.distance ? Math.round(result.distance) : null,
+                        requiredRange: "0-300m"
+                    }
                 }
             });
         }

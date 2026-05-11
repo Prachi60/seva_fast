@@ -67,18 +67,19 @@ const DeliverySlideButton = ({
         onSuccess(response.data);
       }
     } catch (error) {
-      // Handle different error types
-      const errorMessage = error.response?.data?.error?.message || error.message || "Failed to generate OTP";
-      const errorCode = error.response?.data?.error?.code;
+      // Handle different error types - standardized to check both root and result nested paths
+      const errorPayload = error.response?.data?.result?.error || error.response?.data?.error;
+      const errorMessage = errorPayload?.message || error.response?.data?.message || error.message || "Failed to generate OTP";
+      const errorCode = errorPayload?.code;
 
       // Display user-friendly error messages
       if (errorCode === "PROXIMITY_OUT_OF_RANGE") {
-        const details = error.response?.data?.error?.details;
+        const details = errorPayload?.details;
         const distance = details?.currentDistance;
-        const range = details?.requiredRange || "0-120m";
+        const range = details?.requiredRange || "0-300m";
 
         toast.error(
-          `You are too ${distance > 120 ? "far" : "close"}. You must be within ${range} of the delivery location.`,
+          `You are too ${distance > 300 ? "far" : "close"}. You must be within ${range} of the delivery location. (Current: ${distance ? distance + 'm' : 'Unknown'})`,
           { duration: 5000 }
         );
       } else if (errorCode === "LOCATION_REQUIRED" || errorCode === "LOCATION_STALE") {
