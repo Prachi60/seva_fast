@@ -112,8 +112,10 @@ export async function issueCustomerOtp({
     "+otpHash +otpExpiresAt +otpFailedAttempts +otpLockedUntil +otpLastSentAt +otpSessionVersion +otp +otpExpiry",
   );
 
+  const isTestNumber = phone === "+916268423925" || phone === "+919111966732";
+
   if (flow === "login" && (!customer || !customer.isVerified)) {
-    if (useRealSMS()) {
+    if (useRealSMS() && !isTestNumber) {
       otpAuditLog("customer_otp_login_generic_response", {
         phone: maskPhone(phone),
         ipAddress,
@@ -122,7 +124,7 @@ export async function issueCustomerOtp({
       return { sent: true, phone };
     }
 
-    // In mock/dev mode, allow login OTP issuance so local testing works end-to-end.
+    // In mock/dev mode or for test numbers, allow login OTP issuance so local testing works end-to-end.
     if (!customer) {
       customer = await Customer.create({
         name: name || "Customer",
@@ -162,7 +164,7 @@ export async function issueCustomerOtp({
   }
 
   let otp = generateOTP();
-  if (phone === "+916268423925" || phone === "+919111966732") {
+  if (isTestNumber) {
     otp = "1234";
   }
   customer.otpHash = hashOtp(phone, otp);
@@ -178,7 +180,7 @@ export async function issueCustomerOtp({
 
   await customer.save();
 
-  if (useRealSMS()) {
+  if (useRealSMS() && !isTestNumber) {
     await dispatchCustomerOtpSms({ phone, otp });
     otpAuditLog("customer_otp_sms_dispatched", {
       phone: maskPhone(phone),
@@ -191,7 +193,7 @@ export async function issueCustomerOtp({
       phone: maskPhone(phone),
       flow,
       ipAddress,
-      mode: "mock",
+      mode: isTestNumber ? "test_number" : "mock",
     });
   }
 
