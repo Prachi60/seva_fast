@@ -305,7 +305,8 @@ export const getSellerReturns = async (req, res) => {
       query.seller = userId;
     }
 
-    query.returnStatus = { $ne: "none" };
+    // Only fetch orders that have a return request
+    query.returnStatus = { $exists: true, $nin: ["none", null] };
 
     if (status && status !== "all") {
       query.returnStatus = status;
@@ -335,6 +336,7 @@ export const getSellerReturns = async (req, res) => {
         .limit(limit)
         .populate("customer", "name phone")
         .populate("returnDeliveryBoy", "name phone")
+        .populate("items.product", "name mainImage")
         .lean(),
       Order.countDocuments(query),
     ]);

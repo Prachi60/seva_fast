@@ -16,7 +16,7 @@ import { MagicCard } from "@/components/ui/magic-card";
 import { AnimatePresence, motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { Loader2, X } from "lucide-react";
-import { onReturnDropOtp } from "@core/services/orderSocket";
+import { onReturnDropOtp, onSellerReturnRequested } from "@core/services/orderSocket";
 
 const Returns = () => {
     const { showToast } = useToast();
@@ -113,9 +113,16 @@ const Returns = () => {
     useEffect(() => {
         fetchReturns();
 
-        // Listen for return drop OTPs (when rider arrives at seller)
         const getToken = () => localStorage.getItem("auth_seller");
-        const unsubscribe = onReturnDropOtp(getToken, (payload) => {
+
+        // Listen for new return requests
+        const unReturnReq = onSellerReturnRequested(getToken, () => {
+            showToast("New return request received", "info");
+            fetchReturns();
+        });
+
+        // Listen for return drop OTPs (when rider arrives at seller)
+        const unDropOtp = onReturnDropOtp(getToken, (payload) => {
             const { orderId, otp, expiresAt } = payload;
             setActiveOtps(prev => ({
                 ...prev,
@@ -125,7 +132,8 @@ const Returns = () => {
         });
 
         return () => {
-            if (typeof unsubscribe === "function") unsubscribe();
+            if (typeof unReturnReq === "function") unReturnReq();
+            if (typeof unDropOtp === "function") unDropOtp();
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
