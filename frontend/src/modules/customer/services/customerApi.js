@@ -145,4 +145,8 @@ export const customerApi = {
   testPushNotification: () => axiosInstance.post("/push/test"),
   getTestPushNotificationStatus: (orderId) =>
     axiosInstance.get(`/push/test-status/${encodeURIComponent(String(orderId || "").trim())}`),
+
+  // Plans
+  getPlans: () => getWithDedupe("/plans"),
+  verifyPlanPayment: (data) => axiosInstance.post("/plans/subscribe/verify", data),
 };

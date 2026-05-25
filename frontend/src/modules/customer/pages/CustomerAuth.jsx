@@ -16,11 +16,14 @@ import {
     ShoppingBasket,
     Heart,
     Star,
-    ChevronLeft
+    ChevronLeft,
+    X,
+    Eye
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { customerApi } from '../services/customerApi';
 import BgImage from '@/assets/image.png';
+import PlanCard from '@/shared/components/ui/PlanCard';
 
 const CATEGORIES = [
     {
@@ -71,6 +74,9 @@ const CustomerAuth = () => {
     const [showOtp, setShowOtp] = useState(false);
     const [timer, setTimer] = useState(0);
     const [carouselIndex, setCarouselIndex] = useState(0);
+    const [showPlansModal, setShowPlansModal] = useState(false);
+    const [plans, setPlans] = useState([]);
+    const [loadingPlans, setLoadingPlans] = useState(false);
     const { login } = useAuth();
     const { settings } = useSettings();
     const appName = settings?.appName || 'App';
@@ -80,7 +86,8 @@ const CustomerAuth = () => {
     const [formData, setFormData] = useState({
         phone: '',
         otp: '',
-        name: ''
+        name: '',
+        referralCode: ''
     });
 
     const activeCategory = CATEGORIES[carouselIndex];
@@ -111,7 +118,11 @@ const CustomerAuth = () => {
             if (isLogin) {
                 await customerApi.sendLoginOtp({ phone: formData.phone });
             } else {
-                await customerApi.sendSignupOtp({ name: formData.name, phone: formData.phone });
+                await customerApi.sendSignupOtp({ 
+                    name: formData.name, 
+                    phone: formData.phone, 
+                    referralCode: formData.referralCode 
+                });
             }
             setShowOtp(true);
             setTimer(30);
@@ -134,13 +145,33 @@ const CustomerAuth = () => {
             const response = await customerApi.verifyOtp({ phone: formData.phone, otp: formData.otp });
             const { token, customer } = response.data.result;
             login({ ...customer, token, role: 'customer' });
-            toast.success('Successfully Logged In!');
-            navigate('/');
+            
+            if (!customer.currentPlan) {
+                toast.success('Account created! Please select a plan to continue.');
+                navigate('/plans', { replace: true });
+            } else {
+                toast.success('Successfully Logged In!');
+                navigate('/');
+            }
         } catch (error) {
             const apiMessage = error?.response?.data?.message;
             toast.error(apiMessage || 'Invalid OTP');
         } finally {
             setIsLoading(false);
+        }
+    };
+
+    const handleViewPlans = async () => {
+        setShowPlansModal(true);
+        if (plans.length === 0) {
+            setLoadingPlans(true);
+            try {
+                const res = await customerApi.getPlans();
+                setPlans(res.data.results || res.data.result || []);
+            } catch(e) {
+                toast.error("Failed to fetch plans");
+            }
+            setLoadingPlans(false);
         }
     };
 
@@ -328,6 +359,7 @@ const CustomerAuth = () => {
 
                                     <form onSubmit={handleSendOtp} className="space-y-4">
                                         {!isLogin && (
+                                            <>
                                             <div className="relative group">
                                                 <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 transition-colors" style={{ color: 'inherit' }}>
                                                     <User size={18} className="group-focus-within:text-[var(--theme-color)]" style={{ color: 'inherit' }} />
@@ -343,6 +375,21 @@ const CustomerAuth = () => {
                                                     onBlur={(e) => e.target.style.borderColor = '#F3F4F6'}
                                                 />
                                             </div>
+                                            <div className="relative group">
+                                                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 transition-colors" style={{ color: 'inherit' }}>
+                                                    <Star size={18} className="group-focus-within:text-[var(--theme-color)]" style={{ color: 'inherit' }} />
+                                                </div>
+                                                <input
+                                                    name="referralCode"
+                                                    placeholder="Referral Code (Optional)"
+                                                    className="w-full bg-gray-50 border border-gray-100 rounded-2xl pl-12 pr-4 py-4 text-sm font-bold text-gray-800 outline-none focus:bg-white transition-all uppercase"
+                                                    style={{ '--theme-color': activeCategory.theme }}
+                                                    onChange={(e) => setFormData({ ...formData, referralCode: e.target.value })}
+                                                    onFocus={(e) => e.target.style.borderColor = activeCategory.theme}
+                                                    onBlur={(e) => e.target.style.borderColor = '#F3F4F6'}
+                                                />
+                                            </div>
+                                            </>
                                         )}
                                         <div className="relative group">
                                             <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 transition-colors">
@@ -371,6 +418,15 @@ const CustomerAuth = () => {
                                         >
                                             {isLoading ? 'Verifying...' : 'Continue'}
                                             <ChevronRight size={18} />
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={handleViewPlans}
+                                            className="w-full py-4 rounded-[24px] text-xs font-black tracking-[2px] flex items-center justify-center gap-2 transition-all uppercase border-2"
+                                            style={{ color: activeCategory.theme, borderColor: activeCategory.theme }}
+                                        >
+                                            <Eye size={16} />
+                                            View Subscription Plans
                                         </button>
                                     </form>
 
@@ -478,6 +534,59 @@ const CustomerAuth = () => {
             <div className="hidden md:block absolute bottom-10 right-10 text-white/20 text-xs font-bold uppercase tracking-[4px]">
                 Adaptive Theme Simulator
             </div>
+
+            {/* Plans Modal */}
+            <AnimatePresence>
+                {showPlansModal && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+                        onClick={() => setShowPlansModal(false)}
+                    >
+                        <motion.div
+                            initial={{ scale: 0.9, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.9, opacity: 0 }}
+                            onClick={e => e.stopPropagation()}
+                            className="bg-gray-50 rounded-[32px] w-full max-w-5xl max-h-[85vh] overflow-y-auto p-6 lg:p-10 shadow-2xl"
+                        >
+                            <div className="flex justify-between items-center mb-8">
+                                <div>
+                                    <h2 className="text-2xl md:text-3xl font-black text-gray-900 tracking-tight">Our Plans</h2>
+                                    <p className="text-sm font-bold text-gray-500 mt-1">Choose a plan to start shopping today!</p>
+                                </div>
+                                <button onClick={() => setShowPlansModal(false)} className="p-3 bg-white shadow-sm rounded-2xl hover:bg-gray-100 transition-colors">
+                                    <X size={20} className="text-gray-500" />
+                                </button>
+                            </div>
+                            
+                            {loadingPlans ? (
+                                <div className="text-center py-20 font-bold text-gray-400 uppercase tracking-widest text-sm flex flex-col items-center gap-4">
+                                    <div className="w-10 h-10 border-4 border-gray-200 border-t-[var(--theme-color)] rounded-full animate-spin" style={{ '--theme-color': activeCategory.theme }}></div>
+                                    Loading Plans...
+                                </div>
+                            ) : plans.length === 0 ? (
+                                <div className="text-center py-20 font-bold text-gray-400 uppercase tracking-widest text-sm">
+                                    No active plans available
+                                </div>
+                            ) : (
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                    {plans.map(plan => (
+                                        <div key={plan._id} onClick={() => {
+                                            toast.info("Please complete sign up or login to subscribe!");
+                                            setShowPlansModal(false);
+                                        }}>
+                                            <PlanCard plan={plan} isAdmin={false} />
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </div>
     );
 };

@@ -22,6 +22,9 @@ import mediaRoute from "./mediaRoutes.js";
 import healthRoute from "./healthRoutes.js";
 import metricsRoute from "./metricsRoutes.js";
 import authOtpRoute from "../modules/otp/otp.routes.js";
+import planRoute from "./planRoutes.js";
+import photoOrderRoute from "./photoOrderRoutes.js";
+import sellerPhotoOrderRoute from "./sellerPhotoOrderRoutes.js";
 
 import express from "express";
 
@@ -56,6 +59,9 @@ const setupRoutes = (app) => {
     router.use("/reviews", reviewRoute);
     router.use("/admin/faqs", faqRoute);
     router.use("/public/faqs", faqRoute); // For public access without admin prefix
+    router.use("/plans", planRoute);
+    router.use("/photo-orders", photoOrderRoute);
+    router.use("/seller-photo-orders", sellerPhotoOrderRoute);
 
     app.use("/api", router);
 }
