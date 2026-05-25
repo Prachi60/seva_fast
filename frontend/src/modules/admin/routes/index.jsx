@@ -91,6 +91,7 @@ const ShopByStoreManagement = React.lazy(
 const AdminSettings = React.lazy(() => import("../pages/AdminSettings"));
 const EnvSettings = React.lazy(() => import("../pages/EnvSettings"));
 const AdminProfile = React.lazy(() => import("../pages/AdminProfile"));
+const PlanManagement = React.lazy(() => import("../pages/PlanManagement"));
 
 const navItems = [
   {
@@ -203,6 +204,12 @@ const navItems = [
     icon: Settings,
     color: "slate",
   },
+  {
+    label: "Subscription Plans",
+    path: "/admin/plans",
+    icon: Sparkles,
+    color: "amber",
+  },
   { label: "My Profile", path: "/admin/profile", icon: User, color: "indigo" },
   { label: "System Settings", path: "/admin/env", icon: Terminal, color: "dark" },
 ];
@@ -270,6 +277,7 @@ const AdminRoutes = () => {
         <Route path="/billing" element={<BillingCharges />} />
         <Route path="/settings" element={<AdminSettings />} />
         <Route path="/env" element={<EnvSettings />} />
+        <Route path="/plans" element={<PlanManagement />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </DashboardLayout>

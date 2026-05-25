@@ -44,6 +44,7 @@ const CheckoutPage = lazy(() => import('../../modules/customer/pages/CheckoutPag
 const PaymentStatusPage = lazy(() => import('../../modules/customer/pages/PaymentStatusPage'));
 const SearchPage = lazy(() => import('../../modules/customer/pages/SearchPage'));
 const WalletPage = lazy(() => import('../../modules/customer/pages/WalletPage'));
+const PlansPage = lazy(() => import('../../modules/customer/pages/PlansPage'));
 
 // Lazy load heavy modules
 const SellerModule = lazy(() => import('../../modules/seller/routes/index'));
@@ -51,24 +52,40 @@ const AdminModule = lazy(() => import('../../modules/admin/routes/index'));
 const DeliveryModule = lazy(() => import('../../modules/delivery/routes/index'));
 
 import CustomerLayout from '../../modules/customer/components/layout/CustomerLayout';
+import { useAuth } from '../context/AuthContext';
+import { useLocation } from 'react-router-dom';
+
+const PlanEnforcer = ({ children }) => {
+    const { user, isAuthenticated } = useAuth();
+    const location = useLocation();
+
+    if (isAuthenticated && user?.role === 'customer' && !user?.currentPlan) {
+        if (!['/plans', '/terms', '/privacy', '/about'].includes(location.pathname)) {
+            return <Navigate to="/plans" replace />;
+        }
+    }
+    return children;
+};
 
 const CustomerLayoutWrapper = () => (
-    <LocationProvider>
-        <WishlistProvider>
-            <CartProvider>
-                <CartAnimationProvider>
-                    <ProductDetailProvider>
-                        <ScrollToTop />
-                        <CustomerLayout>
-                            <Suspense fallback={<div className="flex h-screen items-center justify-center font-outfit">Loading...</div>}>
-                                <Outlet />
-                            </Suspense>
-                        </CustomerLayout>
-                    </ProductDetailProvider>
-                </CartAnimationProvider>
-            </CartProvider>
-        </WishlistProvider>
-    </LocationProvider>
+    <PlanEnforcer>
+        <LocationProvider>
+            <WishlistProvider>
+                <CartProvider>
+                    <CartAnimationProvider>
+                        <ProductDetailProvider>
+                            <ScrollToTop />
+                            <CustomerLayout>
+                                <Suspense fallback={<div className="flex h-screen items-center justify-center font-outfit">Loading...</div>}>
+                                    <Outlet />
+                                </Suspense>
+                            </CustomerLayout>
+                        </ProductDetailProvider>
+                    </CartAnimationProvider>
+                </CartProvider>
+            </WishlistProvider>
+        </LocationProvider>
+    </PlanEnforcer>
 );
 
 const AppRouter = () => {
@@ -161,6 +178,7 @@ const AppRouter = () => {
                         { path: 'profile', element: <ProtectedRoute><ProfilePage /></ProtectedRoute> },
                         { path: 'profile/edit', element: <ProtectedRoute><EditProfilePage /></ProtectedRoute> },
                         { path: 'wallet', element: <ProtectedRoute><WalletPage /></ProtectedRoute> },
+                        { path: 'plans', element: <ProtectedRoute><PlansPage /></ProtectedRoute> },
                         { path: 'search', element: <SearchPage /> },
                     ]
                 },

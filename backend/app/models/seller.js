@@ -135,6 +135,10 @@ const sellerSchema = new mongoose.Schema(
       default: 5, // Default 5km
     },
     lastLogin: Date,
+    onboardedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
   },
   { timestamps: true },
 );

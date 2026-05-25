@@ -115,6 +115,27 @@ const userSchema = new mongoose.Schema(
         },
 
         lastLogin: Date,
+        
+        // Subscription Plan
+        currentPlan: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Plan",
+        },
+        planExpiry: Date,
+        referredBy: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User",
+        },
+        referralCode: {
+            type: String,
+            unique: true,
+            sparse: true,
+            trim: true,
+            uppercase: true,
+        },
+        permissions: [{
+            type: String,
+        }],
     },
     {
         timestamps: true,

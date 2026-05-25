@@ -21,6 +21,7 @@ import OrderDetailPage from '../pages/OrderDetailPage';
 import ProductDetailPage from '../pages/ProductDetailPage';
 import CheckoutPage from '../pages/CheckoutPage';
 import PaymentStatusPage from '../pages/PaymentStatusPage';
+import PlansPage from '../pages/PlansPage';
 import ScrollToTop from '../components/shared/ScrollToTop';
 import { WishlistProvider } from '../context/WishlistContext';
 import { CartProvider } from '../context/CartContext';
@@ -28,9 +29,25 @@ import { CartAnimationProvider } from '../context/CartAnimationContext';
 import { LocationProvider } from '../context/LocationContext';
 
 import ProtectedRoute from '../../../core/guards/ProtectedRoute';
+import { useAuth } from '../../../core/context/AuthContext';
+import { useLocation, Navigate } from 'react-router-dom';
+
+const PlanEnforcer = ({ children }) => {
+    const { user, isAuthenticated } = useAuth();
+    const location = useLocation();
+
+    // If logged in, is a customer, has NO plan, and isn't already on /plans or legal pages
+    if (isAuthenticated && user?.role === 'customer' && !user?.currentPlan) {
+        if (!['/plans', '/terms', '/privacy', '/about'].includes(location.pathname)) {
+            return <Navigate to="/plans" replace />;
+        }
+    }
+    return children;
+};
 
 const CustomerRoutes = () => {
     return (
+        <PlanEnforcer>
         <LocationProvider>
             <WishlistProvider>
                 <CartProvider>
@@ -59,11 +76,13 @@ const CustomerRoutes = () => {
                             <Route path="payment-status" element={<ProtectedRoute><PaymentStatusPage /></ProtectedRoute>} />
                             <Route path="profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
                             <Route path="profile/edit" element={<ProtectedRoute><EditProfilePage /></ProtectedRoute>} />
+                            <Route path="plans" element={<ProtectedRoute><PlansPage /></ProtectedRoute>} />
                         </Routes>
                     </CartAnimationProvider>
                 </CartProvider>
             </WishlistProvider>
         </LocationProvider>
+        </PlanEnforcer>
     );
 };
 

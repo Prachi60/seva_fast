@@ -87,6 +87,9 @@ axiosInstance.interceptors.response.use(
                 );
             }
         }
+        if (error.response?.status === 403 && error.response?.data?.requirePlan) {
+            window.location.href = '/plans';
+        }
         return Promise.reject(error);
     }
 );

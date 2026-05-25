@@ -2,7 +2,7 @@ import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
     User, MapPin, Package, CreditCard, Wallet, ChevronRight,
-    LogOut, ShieldCheck, Heart, HelpCircle, Info, Edit2, ChevronLeft, Bell
+    LogOut, ShieldCheck, Heart, HelpCircle, Info, Edit2, ChevronLeft, Bell, Sparkles, Copy
 } from 'lucide-react';
 import { useAuth } from '@core/context/AuthContext';
 import { useSettings } from '@core/context/SettingsContext';
@@ -13,6 +13,8 @@ import {
     ensureFcmTokenRegistered,
     startForegroundPushListener
 } from '@core/firebase/pushClient';
+import { Camera, X } from 'lucide-react';
+import axiosInstance from '@/core/api/axios';
 
 const TEST_PUSH_STATUS_POLL_INTERVAL_MS = 1500;
 const TEST_PUSH_STATUS_MAX_ATTEMPTS = 20;
@@ -23,6 +25,7 @@ const ProfilePage = () => {
     const { settings } = useSettings();
     const appName = settings?.appName || 'App';
     const [isTestingPush, setIsTestingPush] = React.useState(false);
+    const [isCustomOrderModalOpen, setIsCustomOrderModalOpen] = React.useState(false);
 
     const formatIndiaPhone = (value) => {
         const raw = String(value || '').trim();
@@ -132,9 +135,21 @@ const ProfilePage = () => {
                         </div>
                         <div>
                             <h2 className="text-base leading-tight font-semibold text-slate-900">{user?.name || 'Customer'}</h2>
-                            <p className="text-slate-500 text-xs font-medium flex items-center gap-1 mt-0.5">
+                            <p className="text-slate-500 text-xs font-medium flex items-center gap-1 mt-0.5 mb-1">
                                 <span className="bg-slate-100 px-1.5 py-0.5 rounded text-[10px] uppercase">India</span> +91 {formatIndiaPhone(user?.phone)}
                             </p>
+                            {user?.referralCode && (
+                                <button 
+                                    onClick={() => {
+                                        navigator.clipboard.writeText(user.referralCode);
+                                        toast.success("Referral code copied to clipboard!");
+                                    }}
+                                    className="flex items-center gap-1.5 bg-brand-50 hover:bg-brand-100 text-brand-600 px-2 py-1 rounded-md transition-colors"
+                                >
+                                    <span className="text-[10px] font-black uppercase tracking-wider">Ref Code: {user.referralCode}</span>
+                                    <Copy size={12} />
+                                </button>
+                            )}
                         </div>
                     </div>
                     <Link to="/profile/edit" className="p-2.5 rounded-lg bg-slate-100 text-slate-500 hover:bg-slate-200 transition-colors">
@@ -150,6 +165,23 @@ const ProfilePage = () => {
                             <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">Personal Account</p>
                         </div>
                         <div className="divide-y divide-slate-100">
+                            <MenuItem
+                                icon={Sparkles}
+                                label="My Subscription"
+                                sub={user?.currentPlan?.name ? `Active: ${user.currentPlan.name}` : "View or upgrade your plan"}
+                                path="/plans"
+                                color="#a855f7"
+                                bg="rgba(168,85,247,0.10)"
+                            />
+                            <div onClick={() => setIsCustomOrderModalOpen(true)}>
+                                <MenuItem
+                                    icon={Camera}
+                                    label="Custom Photo Order"
+                                    sub="Send a picture directly to a seller"
+                                    color="#ec4899"
+                                    bg="rgba(236,72,153,0.10)"
+                                />
+                            </div>
                             <MenuItem
                                 icon={Package}
                                 label="Your Orders"
@@ -237,6 +269,174 @@ const ProfilePage = () => {
                     <p className="text-[10px] text-slate-400 font-medium">Version 2.4.0 - {appName}</p>
                 </div>
 
+            </div>
+            
+            <CustomPhotoOrderModal 
+                isOpen={isCustomOrderModalOpen} 
+                onClose={() => setIsCustomOrderModalOpen(false)} 
+            />
+        </div>
+    );
+};
+
+const CustomPhotoOrderModal = ({ isOpen, onClose }) => {
+    const [file, setFile] = React.useState(null);
+    const [city, setCity] = React.useState('');
+    const [sellers, setSellers] = React.useState([]);
+    const [selectedSellerId, setSelectedSellerId] = React.useState('');
+    const [notes, setNotes] = React.useState('');
+    const [isUploading, setIsUploading] = React.useState(false);
+    const [isSubmitting, setIsSubmitting] = React.useState(false);
+
+    React.useEffect(() => {
+        if (isOpen && city.length > 2) {
+            fetchSellers();
+        }
+    }, [city, isOpen]);
+
+    const fetchSellers = async () => {
+        try {
+            const res = await axiosInstance.get(`/photo-orders/sellers?city=${city}`);
+            setSellers(res.data.result || res.data.results || []);
+        } catch (error) {
+            console.error("Failed to fetch sellers:", error);
+        }
+    };
+
+    const handleFileChange = (e) => {
+        if (e.target.files && e.target.files[0]) {
+            setFile(e.target.files[0]);
+        }
+    };
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        if (!file) return toast.error("Please select an image");
+        if (!selectedSellerId) return toast.error("Please select a seller");
+
+        try {
+            setIsSubmitting(true);
+            setIsUploading(true);
+            
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            const uploadRes = await axiosInstance.post('/media/upload', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+            
+            const photoUrl = uploadRes.data.result.url;
+            setIsUploading(false);
+
+            await axiosInstance.post('/photo-orders', {
+                sellerId: selectedSellerId,
+                photoUrl,
+                notes,
+                city
+            });
+
+            toast.success("Custom photo order sent to seller!");
+            onClose();
+            // Reset
+            setFile(null);
+            setCity('');
+            setSelectedSellerId('');
+            setNotes('');
+        } catch (error) {
+            toast.error(error.response?.data?.message || "Failed to send photo order");
+            setIsUploading(false);
+            setIsSubmitting(false);
+        }
+    };
+
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 z-[600] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+            <div className="bg-white rounded-2xl w-full max-w-md overflow-hidden flex flex-col shadow-2xl relative animate-in fade-in zoom-in duration-200">
+                <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+                    <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                        <Camera size={18} className="text-brand-600" />
+                        Send Photo to Seller
+                    </h3>
+                    <button onClick={onClose} className="p-2 hover:bg-slate-200 rounded-full transition-colors text-slate-500">
+                        <X size={18} />
+                    </button>
+                </div>
+                <form onSubmit={handleSubmit} className="p-4 space-y-4 max-h-[80vh] overflow-y-auto">
+                    <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Your City</label>
+                        <input 
+                            type="text" 
+                            placeholder="Type your city to find sellers..." 
+                            value={city} 
+                            onChange={(e) => setCity(e.target.value)}
+                            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:border-brand-500 outline-none transition-colors"
+                        />
+                    </div>
+                    
+                    {city.length > 2 && (
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Select Seller</label>
+                            <select 
+                                value={selectedSellerId} 
+                                onChange={(e) => setSelectedSellerId(e.target.value)}
+                                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:border-brand-500 outline-none transition-colors appearance-none"
+                            >
+                                <option value="">-- Choose a seller --</option>
+                                {sellers.map(s => (
+                                    <option key={s._id} value={s._id}>{s.name} ({s.shopName || 'Store'})</option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
+
+                    <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Upload Photo (List)</label>
+                        <div className="border-2 border-dashed border-slate-300 rounded-xl p-6 flex flex-col items-center justify-center text-center relative bg-slate-50 hover:bg-slate-100 transition-colors">
+                            {file ? (
+                                <div className="text-sm font-semibold text-brand-600 flex items-center gap-2">
+                                    <Sparkles size={16} /> Selected: {file.name}
+                                </div>
+                            ) : (
+                                <>
+                                    <Camera size={24} className="text-slate-400 mb-2" />
+                                    <span className="text-sm font-medium text-slate-600">Tap to select an image</span>
+                                </>
+                            )}
+                            <input 
+                                type="file" 
+                                accept="image/*" 
+                                onChange={handleFileChange}
+                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                            />
+                        </div>
+                    </div>
+
+                    <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Additional Notes (Optional)</label>
+                        <textarea 
+                            rows="2"
+                            placeholder="Any specific instructions..." 
+                            value={notes} 
+                            onChange={(e) => setNotes(e.target.value)}
+                            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:border-brand-500 outline-none transition-colors resize-none"
+                        />
+                    </div>
+
+                    <button 
+                        type="submit" 
+                        disabled={isSubmitting || !file || !selectedSellerId}
+                        className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:active:scale-100"
+                    >
+                        {isSubmitting ? (
+                            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        ) : (
+                            <Camera size={18} />
+                        )}
+                        {isUploading ? "Uploading Image..." : "Send Request"}
+                    </button>
+                </form>
             </div>
         </div>
     );

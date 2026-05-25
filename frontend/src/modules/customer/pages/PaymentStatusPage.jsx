@@ -5,13 +5,18 @@ import { Check, X, Loader2, AlertTriangle, ArrowRight, RefreshCcw } from "lucide
 import { customerApi } from "../services/customerApi";
 import { useToast } from "@shared/components/ui/Toast";
 import Button from "@shared/components/ui/Button";
+import { useAuth } from "@/core/context/AuthContext";
 
 const PaymentStatusPage = () => {
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
     const { showToast } = useToast();
+    const { user, login } = useAuth();
     
     const merchantOrderId = searchParams.get("merchantOrderId");
+    const type = searchParams.get("type");
+    const planId = searchParams.get("planId");
+    const referredBy = searchParams.get("referredBy");
     const [status, setStatus] = useState("verifying"); // verifying, success, failure, timeout
     const [orderDetails, setOrderDetails] = useState(null);
     const [error, setError] = useState("");
@@ -27,27 +32,41 @@ const PaymentStatusPage = () => {
         }
 
         try {
-            const response = await customerApi.verifyPaymentStatus(merchantOrderId);
-            if (response.data.success) {
-                const paymentStatus = response.data.result.status;
-                const payment = response.data.result.payment;
-                setOrderDetails(payment);
-
-                if (paymentStatus === "CAPTURED") {
+            let response;
+            if (type === "plan") {
+                response = await customerApi.verifyPlanPayment({ merchantOrderId, planId, referredBy });
+                if (response.data.success) {
                     setStatus("success");
                     if (pollInterval.current) clearInterval(pollInterval.current);
                     
-                    // Auto redirect after 3 seconds
+                    const updatedUser = response.data.result;
+                    if (user && login) login({ ...user, ...updatedUser, token: user.token });
+
                     setTimeout(() => {
-                        const targetId = payment.checkoutGroupId || payment.publicOrderId || payment.order;
-                        navigate(`/orders/${targetId}`, { replace: true });
+                        navigate(`/`, { replace: true });
                     }, 4000);
-                } else if (paymentStatus === "FAILED" || paymentStatus === "CANCELLED") {
-                    setStatus("failure");
-                    if (pollInterval.current) clearInterval(pollInterval.current);
-                } else {
-                    // Still pending, continue polling
-                    setRetryCount(prev => prev + 1);
+                }
+            } else {
+                response = await customerApi.verifyPaymentStatus(merchantOrderId);
+                if (response.data.success) {
+                    const paymentStatus = response.data.result.status;
+                    const payment = response.data.result.payment;
+                    setOrderDetails(payment);
+
+                    if (paymentStatus === "CAPTURED") {
+                        setStatus("success");
+                        if (pollInterval.current) clearInterval(pollInterval.current);
+                        
+                        setTimeout(() => {
+                            const targetId = payment.checkoutGroupId || payment.publicOrderId || payment.order;
+                            navigate(`/orders/${targetId}`, { replace: true });
+                        }, 4000);
+                    } else if (paymentStatus === "FAILED" || paymentStatus === "CANCELLED") {
+                        setStatus("failure");
+                        if (pollInterval.current) clearInterval(pollInterval.current);
+                    } else {
+                        setRetryCount(prev => prev + 1);
+                    }
                 }
             }
         } catch (err) {
@@ -214,11 +233,11 @@ const PaymentStatusPage = () => {
                                     <p className="text-[11px] text-slate-500 font-medium">Redirecting to your order details in 4 seconds...</p>
                                 </div>
                                 <Button 
-                                    onClick={() => navigate('/orders')}
-                                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-12 rounded-xl flex items-center justify-center gap-2"
-                                >
-                                    Go to My Orders <ArrowRight size={18} />
-                                </Button>
+                                        onClick={() => navigate(type === 'plan' ? '/' : '/orders')}
+                                        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-12 rounded-xl flex items-center justify-center gap-2"
+                                    >
+                                        {type === 'plan' ? 'Start Shopping' : 'Go to My Orders'} <ArrowRight size={18} />
+                                    </Button>
                             </motion.div>
                         )}
 
@@ -229,7 +248,7 @@ const PaymentStatusPage = () => {
                                 <p className="text-slate-500 text-sm font-medium mb-8">Oops! Something went wrong with the transaction. Your money (if debited) will be refunded automatically by PhonePe.</p>
                                 <div className="flex flex-col gap-3">
                                     <Button 
-                                        onClick={() => navigate('/checkout')}
+                                        onClick={() => navigate(type === 'plan' ? '/plans' : '/checkout')}
                                         className="w-full bg-slate-900 hover:bg-black text-white font-bold h-12 rounded-xl"
                                     >
                                         Try Again

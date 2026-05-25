@@ -94,6 +94,7 @@ export async function issueCustomerOtp({
   rawPhone,
   flow,
   ipAddress = "unknown",
+  referralCode = "",
 }) {
   const phone = normalizeAndValidatePhone(rawPhone);
   const now = new Date();
@@ -130,6 +131,7 @@ export async function issueCustomerOtp({
         name: name || "Customer",
         phone,
         isVerified: false,
+        referralCode: crypto.randomBytes(4).toString('hex').toUpperCase(),
       });
       customer = await Customer.findById(customer._id).select(
         "+otpHash +otpExpiresAt +otpFailedAttempts +otpLockedUntil +otpLastSentAt +otpSessionVersion +otp +otpExpiry",
@@ -138,10 +140,17 @@ export async function issueCustomerOtp({
   }
 
   if (!customer) {
+    let referredBy = null;
+    if (referralCode) {
+      const referrer = await Customer.findOne({ referralCode: referralCode.toUpperCase() });
+      if (referrer) referredBy = referrer._id;
+    }
     customer = await Customer.create({
       name: name || "Customer",
       phone,
       isVerified: false,
+      referralCode: crypto.randomBytes(4).toString('hex').toUpperCase(),
+      referredBy,
     });
     customer = await Customer.findById(customer._id).select(
       "+otpHash +otpExpiresAt +otpFailedAttempts +otpLockedUntil +otpLastSentAt +otpSessionVersion +otp +otpExpiry",
@@ -277,6 +286,11 @@ export async function verifyCustomerOtpCode({
   customer.otp = undefined;
   customer.otpExpiry = undefined;
   customer.lastLogin = now;
+
+  // Ensure legacy users have a referral code
+  if (!customer.referralCode) {
+    customer.referralCode = crypto.randomBytes(4).toString('hex').toUpperCase();
+  }
 
   await customer.save();
 

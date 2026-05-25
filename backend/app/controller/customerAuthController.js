@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import Customer from "../models/customer.js";
 import Transaction from "../models/transaction.js";
 import jwt from "jsonwebtoken";
@@ -33,6 +34,7 @@ export const signupCustomer = async (req, res) => {
             rawPhone: payload.phone,
             flow: "signup",
             ipAddress: req.ip,
+            referralCode: payload.referralCode,
         });
 
         return handleResponse(res, 200, "If the number is eligible, OTP has been sent");
@@ -71,6 +73,7 @@ export const verifyCustomerOTP = async (req, res) => {
             otp: payload.otp,
             ipAddress: req.ip,
         });
+        await customer.populate("currentPlan");
         const token = generateToken(customer);
 
         return handleResponse(
@@ -92,10 +95,17 @@ export const verifyCustomerOTP = async (req, res) => {
 ================================ */
 export const getCustomerProfile = async (req, res) => {
     try {
-        const customer = await Customer.findById(req.user.id);
+        const customer = await Customer.findById(req.user.id).populate("currentPlan");
         if (!customer) {
             return handleResponse(res, 404, "Customer not found");
         }
+        
+        // Ensure legacy users have a referral code
+        if (!customer.referralCode) {
+            customer.referralCode = crypto.randomBytes(4).toString('hex').toUpperCase();
+            await customer.save();
+        }
+
         return handleResponse(res, 200, "Profile fetched successfully", customer);
     } catch (error) {
         return handleResponse(res, 500, error.message);
