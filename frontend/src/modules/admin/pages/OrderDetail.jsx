@@ -501,7 +501,7 @@ const OrderDetail = () => {
                             {settings?.logoUrl ? (
                                 <img src={settings.logoUrl} alt="Logo" width="130" style={{ display: "inline-block", marginBottom: "16px" }} crossOrigin="anonymous" />
                             ) : (
-                                <div style={{ fontSize: "26px", fontWeight: "900", color: "#0f172a", marginBottom: "4px" }}>{settings?.appName || 'NOYO KART'}</div>
+                                <div style={{ fontSize: "26px", fontWeight: "900", color: "#0f172a", marginBottom: "4px" }}>{settings?.appName || 'SEVA FAST'}</div>
                             )}
                             <div style={{ fontSize: "10px", color: "#64748b", fontWeight: "800", textTransform: "uppercase", letterSpacing: "3px" }}>Official Tax Invoice</div>
                         </div>
@@ -613,7 +613,7 @@ const OrderDetail = () => {
                                 This is a system-generated commercial invoice. No physical signature required.
                             </div>
                             <div style={{ fontSize: "10px", color: "#94a3b8", marginTop: "5px" }}>
-                                {settings?.appName || 'Noyo Kart'} • Customer Support: support@appzeto.com
+                                {settings?.appName || 'Seva Fast'} • Customer Support: support@sevafast.com
                             </div>
                         </div>
                     </div>

@@ -4,11 +4,10 @@ import { cn } from '@/lib/utils';
 
 const featureOptions = [
     { key: "FREE_DELIVERY", label: "Free Deliveries / Month", unit: "Count", icon: Zap },
+    { key: "FREE_HANDLING", label: "Free Handling Fees / Month", unit: "Count", icon: Percent },
     { key: "CASHBACK", label: "Cashback Percentage", unit: "%", icon: Gift },
-    { key: "VENDOR_ONBOARDING", label: "Vendor Onboarding", unit: "Boolean", icon: Users },
-    { key: "REFERRAL_REWARD", label: "Referral Reward", unit: "₹", icon: Shield },
+    { key: "VENDOR_ONBOARDING", label: "Vendor Onboarding", unit: "₹", icon: Users },
     { key: "TURNOVER_COMMISSION", label: "Turnover Commission", unit: "%", icon: TrendingUp },
-    { key: "ORDER_COMMISSION", label: "Order Commission", unit: "%", icon: ShoppingBag },
     { key: "REFERRAL_LEVELS", label: "Referral Levels", unit: "Count", icon: Layers },
     { key: "LEVEL_COMMISSION", label: "Level-wise Commission", unit: "%", icon: Percent },
 ];
@@ -69,7 +68,7 @@ const PlanEditorModal = ({ isOpen, onClose, onSave, plan }) => {
                     key: feature.key,
                     label: feature.label,
                     unit: feature.unit,
-                    value: feature.unit === 'Boolean' ? true : 0
+                    value: feature.key === 'LEVEL_COMMISSION' ? [] : (feature.unit === 'Boolean' ? true : 0)
                 }]
             }));
         }
@@ -242,6 +241,35 @@ const PlanEditorModal = ({ isOpen, onClose, onSave, plan }) => {
                                                     >
                                                         {feature.value ? 'Enabled' : 'Disabled'}
                                                     </button>
+                                                ) : feature.key === 'LEVEL_COMMISSION' ? (
+                                                    <div className="w-full space-y-2">
+                                                        {(() => {
+                                                            const levelsFeature = formData.features.find(f => f.key === 'REFERRAL_LEVELS');
+                                                            const numLevels = levelsFeature ? (parseInt(levelsFeature.value) || 0) : 0;
+                                                            if (numLevels <= 0) {
+                                                                return <p className="text-xs text-red-500 font-bold">Please set 'Referral Levels' first.</p>;
+                                                            }
+                                                            const values = Array.isArray(feature.value) ? feature.value : [];
+                                                            return Array.from({ length: numLevels }).map((_, i) => (
+                                                                <div key={i} className="relative flex items-center gap-2">
+                                                                    <span className="text-[10px] font-black text-slate-500 uppercase w-12">Lvl {i + 1}</span>
+                                                                    <div className="relative flex-1">
+                                                                        <input
+                                                                            type="number"
+                                                                            value={values[i] || 0}
+                                                                            onChange={(e) => {
+                                                                                const newValues = [...values];
+                                                                                newValues[i] = parseFloat(e.target.value) || 0;
+                                                                                handleFeatureValueChange(feature.key, newValues);
+                                                                            }}
+                                                                            className="w-full pl-4 pr-10 py-2 bg-white border-none rounded-xl text-sm font-bold outline-none"
+                                                                        />
+                                                                        <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-black text-slate-300">{feature.unit}</span>
+                                                                    </div>
+                                                                </div>
+                                                            ));
+                                                        })()}
+                                                    </div>
                                                 ) : (
                                                     <div className="relative flex-1">
                                                         <input

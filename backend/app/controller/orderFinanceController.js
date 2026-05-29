@@ -35,11 +35,52 @@ function validateWithJoi(schema, payload) {
 export const previewCheckoutFinance = async (req, res) => {
   try {
     const payload = validateWithJoi(checkoutPreviewSchema, req.body || {});
+    const customer = await (await import("../models/customer.js")).default.findById(req.user.id).populate("currentPlan").lean();
+    let hasFreeDelivery = false;
+    let hasFreeHandling = false;
+    let cashbackPercentage = 0;
+    if (customer?.currentPlan && customer.planExpiry && new Date(customer.planExpiry) > new Date()) {
+      const now = new Date();
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+      
+      const monthlyOrderCount = await Order.countDocuments({
+        customer: customer._id,
+        createdAt: { $gte: startOfMonth, $lte: endOfMonth },
+        status: { $nin: ["cancelled", "declined"] }
+      });
+
+      const freeDelFeature = customer.currentPlan.features?.find(f => f.key === "FREE_DELIVERY");
+      if (freeDelFeature && freeDelFeature.value !== false && freeDelFeature.value !== "0") {
+        const limit = parseInt(freeDelFeature.value, 10) || 0;
+        if (limit === -1 || monthlyOrderCount < limit) {
+          hasFreeDelivery = true;
+        }
+      }
+      const freeHandFeature = customer.currentPlan.features?.find(f => f.key === "FREE_HANDLING");
+      if (freeHandFeature && freeHandFeature.value !== false && freeHandFeature.value !== "0") {
+        const limit = parseInt(freeHandFeature.value, 10) || 0;
+        if (limit === -1 || monthlyOrderCount < limit) {
+          hasFreeHandling = true;
+        }
+      }
+      
+      const cashbackFeature = customer.currentPlan.features?.find(f => f.key === "CASHBACK");
+      if (cashbackFeature && cashbackFeature.value) {
+        cashbackPercentage = parseFloat(cashbackFeature.value) || 0;
+      }
+      
+      console.log(`[DEBUG] User: ${customer._id}, monthlyOrderCount: ${monthlyOrderCount}, limit: ${parseInt(freeDelFeature?.value, 10)}, hasFreeDel: ${hasFreeDelivery}, hasFreeHand: ${hasFreeHandling}, cashbackPct: ${cashbackPercentage}`);
+    }
+
     const pricingSnapshot = await buildCheckoutPricingSnapshot({
       orderItems: payload.items,
       address: payload.address,
       tipAmount: payload.tipAmount,
       discountTotal: payload.discountTotal || 0,
+      hasFreeDelivery,
+      hasFreeHandling,
+      cashbackPercentage,
     });
 
     const sellerBreakdowns = pricingSnapshot.sellerBreakdownEntries.map((entry) => ({

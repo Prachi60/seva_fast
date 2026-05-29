@@ -97,7 +97,8 @@ export const signupSeller = async (req, res) => {
             documents,
             lat,
             lng,
-            radius
+            radius,
+            referralCode
         } = req.body || {};
 
         // 1. Handle file uploads if they exist in req.files (multipart form)
@@ -198,6 +199,7 @@ export const signupSeller = async (req, res) => {
             emailVerified: true,
             phoneVerified: true,
             isActive: false,
+            onboardedBy: null,
         };
 
         if (parsedLat !== undefined && parsedLng !== undefined) {
@@ -211,7 +213,46 @@ export const signupSeller = async (req, res) => {
             sellerData.serviceRadius = parsedRadius;
         }
 
+        let referrerUser = null;
+        let rewardAmount = 0;
+
+        if (referralCode) {
+            const User = (await import("../models/customer.js")).default;
+            referrerUser = await User.findOne({ referralCode: referralCode.toUpperCase() });
+            
+            if (referrerUser && referrerUser.currentPlan && referrerUser.planExpiry > new Date()) {
+                const Plan = (await import("../models/plan.js")).default;
+                const plan = await Plan.findById(referrerUser.currentPlan);
+                if (plan) {
+                    const vendorFeature = plan.features.find(f => f.key === "VENDOR_ONBOARDING");
+                    if (vendorFeature && Number(vendorFeature.value) > 0) {
+                        rewardAmount = Number(vendorFeature.value);
+                        sellerData.onboardedBy = referrerUser._id;
+                    }
+                }
+            }
+        }
+
         seller = await Seller.create(sellerData);
+
+        if (rewardAmount > 0 && referrerUser) {
+            const Transaction = (await import("../models/transaction.js")).default;
+            referrerUser.walletBalance = (referrerUser.walletBalance || 0) + rewardAmount;
+            await referrerUser.save();
+
+            await Transaction.create({
+                user: referrerUser._id,
+                userModel: "User",
+                type: "Incentive",
+                amount: rewardAmount,
+                status: "Settled",
+                reference: `VENDOR-REF-${seller._id}`,
+                meta: {
+                    sellerId: seller._id,
+                    description: "Vendor Onboarding Reward",
+                }
+            });
+        }
 
         return handleResponse(res, 201, "Seller registered successfully", {
             seller,

@@ -100,6 +100,7 @@ function buildAggregateBreakdown(sellerBreakdowns = []) {
     codCollectedAmount: sumField(sellerBreakdowns, "codCollectedAmount"),
     codRemittedAmount: sumField(sellerBreakdowns, "codRemittedAmount"),
     codPendingAmount: sumField(sellerBreakdowns, "codPendingAmount"),
+    estimatedCashback: sumField(sellerBreakdowns, "estimatedCashback"),
     distanceKmActual: sumField(sellerBreakdowns, "distanceKmActual"),
     distanceKmRounded: sumField(sellerBreakdowns, "distanceKmRounded"),
     snapshots: {
@@ -251,6 +252,9 @@ export async function buildCheckoutPricingSnapshot({
   tipAmount = 0,
   discountTotal = 0,
   session = null,
+  hasFreeDelivery = false,
+  hasFreeHandling = false,
+  cashbackPercentage = 0,
 }) {
   const hydratedItems = await hydrateOrderItems(orderItems, {
     session,
@@ -267,6 +271,9 @@ export async function buildCheckoutPricingSnapshot({
   const sellerBreakdownEntries = [];
 
   const globalHandling = await computeGlobalHandlingFeeForCheckout(hydratedItems, { session });
+  if (hasFreeHandling) {
+    globalHandling.handlingFeeCharged = 0;
+  }
 
   // Pre-compute each seller's subtotal for proportional discount distribution
   const sellerSubtotals = new Map();
@@ -294,7 +301,13 @@ export async function buildCheckoutPricingSnapshot({
       discountTotal: sellerDiscount,
       taxTotal: 0,
       session,
+      hasFreeDelivery,
+      hasFreeHandling,
     });
+    
+    // Add estimatedCashback
+    breakdown.estimatedCashback = round2((breakdown.productSubtotal * cashbackPercentage) / 100);
+
     sellerBreakdownEntries.push({
       sellerId,
       distanceKm,

@@ -218,7 +218,7 @@ const CheckoutPage = () => {
     ? selectedCoupon.discountAmount || selectedCoupon.discount || 0
     : 0;
 
-  const RECIPIENT_STORAGE_KEY = "appzeto_checkout_recipient_v1";
+  const RECIPIENT_STORAGE_KEY = "sevafast_checkout_recipient_v1";
 
   // Derived display values for primary delivery card
   const displayName = savedRecipient?.name || currentAddress.name;
@@ -246,7 +246,7 @@ const CheckoutPage = () => {
     }
   }, [useWallet, user?.walletBalance, pricingPreview?.grandTotal]);
 
-  const finalAmountToPay = Math.max(0, (pricingPreview?.grandTotal || 0) - walletAmountToUse);
+  const finalAmountToPay = Math.max(0, (pricingPreview?.grandTotal ?? cartTotal) - walletAmountToUse);
 
   const buildAddressForOrder = () => {
     if (savedRecipient) {

@@ -59,8 +59,10 @@ export const customerApi = {
   // Explicit timeout so checkout never waits forever if the server blocks (e.g. Redis/Bull).
   checkoutPreview: (data) =>
     axiosInstance.post("/orders/checkout/preview", data, { timeout: 120000 }),
-  createOrder: (data) =>
-    axiosInstance.post("/orders", data, { timeout: 120000 }),
+  createOrder: (data) => {
+    invalidateCache("/orders/my-orders");
+    return axiosInstance.post("/orders", data, { timeout: 120000 });
+  },
   verifyOnlineOrderPayment: (orderId, data) =>
     axiosInstance.post(`/orders/${orderId}/payment/verify-online`, data),
   markOrderDelivered: (orderId, data) =>
@@ -69,9 +71,11 @@ export const customerApi = {
     axiosInstance.post(`/orders/${orderId}/cod/mark-collected`, data || {}),
   reconcileOrderCod: (orderId, data) =>
     axiosInstance.post(`/orders/${orderId}/cod/reconcile`, data),
-  placeOrder: (data) =>
-    axiosInstance.post("/orders/place", data, { timeout: 120000 }),
-  getMyOrders: () => getWithDedupe("/orders/my-orders"),
+  placeOrder: (data) => {
+    invalidateCache("/orders/my-orders");
+    return axiosInstance.post("/orders/place", data, { timeout: 120000 });
+  },
+  getMyOrders: () => getWithDedupe("/orders/my-orders", {}, { ttl: 0 }),
   /**
    * Order details must reflect live workflow, but we still dedupe in-flight requests to avoid
    * network spam when multiple effects/events trigger refresh simultaneously.

@@ -3,6 +3,7 @@ import {
   handleCodOrderFinance,
   settleDeliveredOrder,
 } from "./finance/orderFinanceService.js";
+import { processOrderLevelCommissions } from "./finance/commissionService.js";
 
 /**
  * Financial side effects when order becomes delivered (mirrors orderController).
@@ -69,4 +70,49 @@ export async function applyDeliveredSettlement(order, orderIdString) {
       );
     }
   }
+
+  // Credit cashback to customer wallet if applicable
+  const estimatedCashback = settled.paymentBreakdown?.estimatedCashback || 0;
+  if (estimatedCashback > 0 && settled.customer && !settled.financeFlags?.cashbackCredited) {
+    const User = (await import("../models/customer.js")).default;
+    const user = await User.findById(settled.customer);
+    if (user) {
+      user.walletBalance = (user.walletBalance || 0) + estimatedCashback;
+      await user.save();
+      
+      await Transaction.findOneAndUpdate(
+        { reference: `CASHBACK-${orderIdString}` },
+        {
+          $setOnInsert: {
+            user: settled.customer,
+            userModel: "User",
+            order: settled._id,
+            type: "Cashback",
+            amount: estimatedCashback,
+            status: "Settled",
+            reference: `CASHBACK-${orderIdString}`,
+          },
+        },
+        { upsert: true, new: true },
+      );
+      
+      settled.financeFlags = {
+         ...(settled.financeFlags || {}),
+         cashbackCredited: true
+      };
+      await settled.save();
+    }
+  }
+
+  // Process multi-level referral commissions
+  if (!settled.financeFlags?.levelCommissionCredited) {
+    await processOrderLevelCommissions(settled);
+    settled.financeFlags = {
+       ...(settled.financeFlags || {}),
+       levelCommissionCredited: true
+    };
+    await settled.save();
+  }
+
+  return settled;
 }

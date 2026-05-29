@@ -146,6 +146,7 @@ export function freezeFinancialSnapshot(order, breakdown) {
     codRemittedAmount: roundCurrency(sanitized.codRemittedAmount || 0),
     codPendingAmount: roundCurrency(sanitized.codPendingAmount || 0),
     walletAmount: roundCurrency(sanitized.walletAmount || order.pricing?.walletAmount || 0),
+    estimatedCashback: roundCurrency(sanitized.estimatedCashback || 0),
   };
   ensurePaymentBreakdownSnapshots(order);
 

@@ -1,5 +1,6 @@
 import handleResponse from "../../utils/helper.js";
 import getPagination from "../../utils/pagination.js";
+import Seller from "../../models/seller.js";
 import {
   getActiveSellersData,
   getSellerLocationsData,
@@ -57,6 +58,8 @@ export const getActiveSellers = async (req, res) => {
       skip,
     });
 
+
+
     return handleResponse(res, 200, "Active sellers fetched successfully", data);
   } catch (error) {
     return handleResponse(res, 500, error.message);
@@ -67,6 +70,29 @@ export const getSellers = async (req, res) => {
   try {
     const sellers = await getSellerOptions();
     return handleResponse(res, 200, "Sellers fetched", sellers);
+  } catch (error) {
+    return handleResponse(res, 500, error.message);
+  }
+};
+
+export const updateSellerDetails = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { commissionModel, oneTimeChargePaid, oneTimeChargeAmount, categoryCommissionOverrides } = req.body;
+    
+    const updateData = {};
+    if (commissionModel !== undefined) updateData.commissionModel = commissionModel;
+    if (oneTimeChargePaid !== undefined) updateData.oneTimeChargePaid = oneTimeChargePaid;
+    if (oneTimeChargeAmount !== undefined) updateData.oneTimeChargeAmount = Number(oneTimeChargeAmount);
+    if (categoryCommissionOverrides !== undefined) updateData.categoryCommissionOverrides = categoryCommissionOverrides;
+
+    const seller = await Seller.findByIdAndUpdate(id, { $set: updateData }, { new: true });
+    
+    if (!seller) {
+      return handleResponse(res, 404, "Seller not found");
+    }
+    
+    return handleResponse(res, 200, "Seller details updated successfully", seller);
   } catch (error) {
     return handleResponse(res, 500, error.message);
   }

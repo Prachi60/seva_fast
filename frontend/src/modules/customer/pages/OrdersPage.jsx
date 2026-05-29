@@ -18,10 +18,13 @@ const OrdersPage = () => {
                 // - arrays => { results: [...] }
                 // - objects => { result: { items: [...] } }
                 const payload = response?.data;
+                console.log("[OrdersPage] Raw API response:", response);
+                console.log("[OrdersPage] Payload:", payload);
                 const items =
                     payload?.result?.items ||
                     payload?.results ||
                     [];
+                console.log("[OrdersPage] Extracted items:", items);
                 setOrders(Array.isArray(items) ? items : []);
             } catch (error) {
                 console.error("Failed to fetch orders:", error);

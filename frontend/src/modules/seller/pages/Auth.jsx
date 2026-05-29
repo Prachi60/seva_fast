@@ -24,6 +24,7 @@ import {
   Loader2,
   Eye,
   EyeOff,
+  Gift,
 } from "lucide-react";
 import { toast } from "sonner";
 import Lottie from "lottie-react";
@@ -727,6 +728,22 @@ const Auth = () => {
                         {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                       </button>
                     </div>
+
+                    {!isLogin && (
+                      <div className="relative group">
+                        <div className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-violet-600 transition-colors">
+                          <Gift size={18} />
+                        </div>
+                        <input
+                          type="text"
+                          name="referralCode"
+                          placeholder="Referral Code (Optional)"
+                          className="w-full pl-12 pr-6 py-4 bg-slate-50 border-2 border-transparent rounded-lg text-sm font-bold text-slate-700 outline-none focus:bg-white focus:border-slate-200 transition-all placeholder:text-slate-300 uppercase"
+                          value={formData.referralCode || ""}
+                          onChange={(e) => setFormData({ ...formData, referralCode: e.target.value.toUpperCase() })}
+                        />
+                      </div>
+                    )}
                   </>
                 )}
 

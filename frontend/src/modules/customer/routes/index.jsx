@@ -33,15 +33,6 @@ import { useAuth } from '../../../core/context/AuthContext';
 import { useLocation, Navigate } from 'react-router-dom';
 
 const PlanEnforcer = ({ children }) => {
-    const { user, isAuthenticated } = useAuth();
-    const location = useLocation();
-
-    // If logged in, is a customer, has NO plan, and isn't already on /plans or legal pages
-    if (isAuthenticated && user?.role === 'customer' && !user?.currentPlan) {
-        if (!['/plans', '/terms', '/privacy', '/about'].includes(location.pathname)) {
-            return <Navigate to="/plans" replace />;
-        }
-    }
     return children;
 };
 

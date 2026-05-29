@@ -114,6 +114,34 @@ const ActiveSellers = () => {
   const [lastSyncAt, setLastSyncAt] = useState(null);
   const [refreshTick, setRefreshTick] = useState(0);
   const [selectedSeller, setSelectedSeller] = useState(null);
+  const [headerCategories, setHeaderCategories] = useState([]);
+
+  useEffect(() => {
+    const loadHeaders = async () => {
+      try {
+        const response = await adminApi.getCategories({ type: 'header' });
+        const categories = response.data?.results || response.data?.result || response.data?.items || [];
+        setHeaderCategories(Array.isArray(categories) ? categories : []);
+      } catch (err) {
+        console.error("Failed to load header categories", err);
+      }
+    };
+    loadHeaders();
+  }, []);
+
+  useEffect(() => {
+    if (selectedSeller) {
+      document.documentElement.style.overflow = 'hidden';
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.documentElement.style.overflow = '';
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.documentElement.style.overflow = '';
+      document.body.style.overflow = '';
+    };
+  }, [selectedSeller]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -513,7 +541,7 @@ const ActiveSellers = () => {
 
       <AnimatePresence>
         {selectedSeller && (
-          <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-6">
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -526,9 +554,10 @@ const ActiveSellers = () => {
               initial={{ opacity: 0, scale: 0.96, y: 24 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.96, y: 24 }}
-              className="relative z-10 w-full max-w-4xl bg-white rounded-3xl shadow-2xl overflow-hidden"
+              className="relative z-10 w-full max-w-4xl bg-white rounded-3xl shadow-2xl flex flex-col overflow-hidden"
+              style={{ maxHeight: '85vh' }}
             >
-              <div className="flex items-start justify-between p-5 border-b border-slate-100">
+              <div className="flex items-start justify-between p-5 border-b border-slate-100 shrink-0">
                 <div className="flex items-center gap-4">
                   <div className="h-16 w-16 rounded-2xl overflow-hidden bg-slate-100 ring-4 ring-white shadow-lg">
                     <img
@@ -569,7 +598,8 @@ const ActiveSellers = () => {
                 </button>
               </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-12">
+              <div className="flex-1 overflow-y-auto custom-scrollbar bg-white">
+                <div className="grid grid-cols-1 lg:grid-cols-12">
                 <div className="lg:col-span-4 bg-slate-50 p-5 border-r border-slate-100">
                   <div className="space-y-5">
                     <div className="space-y-3">
@@ -680,6 +710,141 @@ const ActiveSellers = () => {
                     </div>
                   </div>
 
+                  <div className="mt-6 border-t border-slate-100 pt-6">
+                    <h4 className="text-sm font-black text-slate-900 mb-4 uppercase tracking-widest">Financial Configuration</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div>
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">Commission Model</label>
+                        <div className="flex bg-slate-50 rounded-xl p-1 border border-slate-200">
+                            <button 
+                                onClick={async () => {
+                                  try {
+                                    await adminApi.updateSellerDetails(selectedSeller.id || selectedSeller._id, { commissionModel: 'CATEGORY_WISE' });
+                                    setSelectedSeller(prev => ({ ...prev, commissionModel: 'CATEGORY_WISE' }));
+                                    toast.success("Updated to Category Wise Commission");
+                                    setRefreshTick(t => t + 1);
+                                  } catch (e) {
+                                    toast.error("Failed to update commission model");
+                                  }
+                                }}
+                                className={cn("flex-1 py-2 text-xs font-bold rounded-lg transition-all", selectedSeller.commissionModel !== 'ONE_TIME' ? "bg-slate-900 text-white shadow-sm" : "text-slate-500 hover:bg-slate-200")}
+                            >
+                                Category Wise
+                            </button>
+                            <button 
+                                onClick={async () => {
+                                  try {
+                                    await adminApi.updateSellerDetails(selectedSeller.id || selectedSeller._id, { commissionModel: 'ONE_TIME' });
+                                    setSelectedSeller(prev => ({ ...prev, commissionModel: 'ONE_TIME' }));
+                                    toast.success("Updated to One-Time Charge Model");
+                                    setRefreshTick(t => t + 1);
+                                  } catch (e) {
+                                    toast.error("Failed to update commission model");
+                                  }
+                                }}
+                                className={cn("flex-1 py-2 text-xs font-bold rounded-lg transition-all", selectedSeller.commissionModel === 'ONE_TIME' ? "bg-slate-900 text-white shadow-sm" : "text-slate-500 hover:bg-slate-200")}
+                            >
+                                One-Time Charge
+                            </button>
+                        </div>
+                      </div>
+                      
+                      {selectedSeller.commissionModel === 'ONE_TIME' && (
+                        <div>
+                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">Payment Configuration</label>
+                          <div className="p-3 bg-amber-50 rounded-xl border border-amber-100 space-y-3">
+                            <div className="flex items-center gap-2">
+                                <span className="text-xs font-bold text-amber-900 whitespace-nowrap">Amount (₹):</span>
+                                <input 
+                                    type="number" 
+                                    defaultValue={selectedSeller.oneTimeChargeAmount || 0}
+                                    onBlur={async (e) => {
+                                        const amount = Number(e.target.value);
+                                        if (amount === selectedSeller.oneTimeChargeAmount) return;
+                                        try {
+                                            await adminApi.updateSellerDetails(selectedSeller.id || selectedSeller._id, { oneTimeChargeAmount: amount });
+                                            setSelectedSeller(prev => ({ ...prev, oneTimeChargeAmount: amount }));
+                                            toast.success("Amount saved successfully!");
+                                            setRefreshTick(t => t + 1);
+                                        } catch (err) {
+                                            toast.error("Failed to save amount");
+                                        }
+                                    }}
+                                    className="w-full bg-white border border-amber-200 rounded-lg px-3 py-1.5 text-xs font-bold outline-none focus:ring-2 focus:ring-amber-500/20"
+                                />
+                            </div>
+                            <div className="flex items-center justify-between pt-2 border-t border-amber-200/50">
+                                <p className="text-[10px] font-bold text-amber-900 uppercase tracking-widest">0% Commission</p>
+                                <button 
+                                    onClick={async () => {
+                                      try {
+                                        const newVal = !selectedSeller.oneTimeChargePaid;
+                                        await adminApi.updateSellerDetails(selectedSeller.id || selectedSeller._id, { oneTimeChargePaid: newVal });
+                                        setSelectedSeller(prev => ({ ...prev, oneTimeChargePaid: newVal }));
+                                        toast.success(newVal ? "Marked as Paid!" : "Marked as Unpaid");
+                                        setRefreshTick(t => t + 1);
+                                      } catch (e) {
+                                        toast.error("Failed to update payment status");
+                                      }
+                                    }}
+                                    className={cn("px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all", selectedSeller.oneTimeChargePaid ? "bg-emerald-500 text-white shadow-md shadow-emerald-200" : "bg-white text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50")}
+                                >
+                                    {selectedSeller.oneTimeChargePaid ? '✓ PAID' : 'MARK AS PAID'}
+                                </button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    
+                    {selectedSeller.commissionModel !== 'ONE_TIME' && headerCategories.length > 0 && (
+                      <div className="mt-6 pt-6 border-t border-slate-100">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-4">Custom Category Overrides (%)</label>
+                        <p className="text-xs text-slate-500 mb-4 leading-relaxed">Leave blank to use the global category commission. Set a number to override it for this specific seller.</p>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                          {headerCategories.map(cat => {
+                            const overrides = selectedSeller.categoryCommissionOverrides || {};
+                            const currentVal = overrides[cat._id] !== undefined ? overrides[cat._id] : '';
+                            return (
+                              <div key={cat._id} className="bg-slate-50 border border-slate-200 rounded-xl p-3">
+                                <p className="text-[10px] font-bold text-slate-700 truncate mb-2">{cat.name}</p>
+                                <div className="flex items-center gap-2">
+                                  <input
+                                    type="number"
+                                    placeholder="Global"
+                                    defaultValue={currentVal}
+                                    onBlur={async (e) => {
+                                      const val = e.target.value;
+                                      const numVal = val === '' ? null : Number(val);
+                                      if (currentVal === val || (currentVal === '' && numVal === null)) return;
+                                      
+                                      try {
+                                        const updatedOverrides = { ...overrides };
+                                        if (numVal === null) {
+                                          delete updatedOverrides[cat._id];
+                                        } else {
+                                          updatedOverrides[cat._id] = numVal;
+                                        }
+                                        await adminApi.updateSellerDetails(selectedSeller.id || selectedSeller._id, { categoryCommissionOverrides: updatedOverrides });
+                                        setSelectedSeller(prev => ({ ...prev, categoryCommissionOverrides: updatedOverrides }));
+                                        toast.success(`${cat.name} override saved!`);
+                                        setRefreshTick(t => t + 1);
+                                      } catch (err) {
+                                        toast.error("Failed to save override");
+                                      }
+                                    }}
+                                    className="w-full bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs font-bold outline-none focus:ring-2 focus:ring-primary/20"
+                                  />
+                                  <span className="text-xs font-bold text-slate-400">%</span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
                   <div className="mt-6 flex items-center justify-end gap-3">
                     <button
                       onClick={() => setSelectedSeller(null)}
@@ -687,6 +852,7 @@ const ActiveSellers = () => {
                     >
                       Close
                     </button>
+                  </div>
                   </div>
                 </div>
               </div>

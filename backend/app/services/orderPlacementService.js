@@ -291,7 +291,7 @@ export async function placeOrderAtomic({
     const tipAmount = Math.max(0, Number(normalizedPayload.tipAmount || 0));
 
     // 1. Fetch user and validate wallet
-    const user = await User.findById(customerId).session(session);
+    const user = await User.findById(customerId).populate("currentPlan").session(session);
     if (walletAmount > 0) {
       if (!user) throw new Error("User not found");
       if (user.walletBalance < walletAmount) {
@@ -309,12 +309,49 @@ export async function placeOrderAtomic({
       session,
     });
 
+    let hasFreeDelivery = false;
+    let hasFreeHandling = false;
+    let cashbackPercentage = 0;
+    if (user?.currentPlan && user.planExpiry && new Date(user.planExpiry) > new Date()) {
+      const now = new Date();
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+      
+      const monthlyOrderCount = await Order.countDocuments({
+        customer: user._id,
+        createdAt: { $gte: startOfMonth, $lte: endOfMonth },
+        status: { $nin: ["cancelled", "declined"] }
+      });
+
+      const freeDelFeature = user.currentPlan.features?.find(f => f.key === "FREE_DELIVERY");
+      if (freeDelFeature && freeDelFeature.value !== false && freeDelFeature.value !== "0") {
+        const limit = parseInt(freeDelFeature.value, 10) || 0;
+        if (limit === -1 || monthlyOrderCount < limit) {
+          hasFreeDelivery = true;
+        }
+      }
+      const freeHandFeature = user.currentPlan.features?.find(f => f.key === "FREE_HANDLING");
+      if (freeHandFeature && freeHandFeature.value !== false && freeHandFeature.value !== "0") {
+        const limit = parseInt(freeHandFeature.value, 10) || 0;
+        if (limit === -1 || monthlyOrderCount < limit) {
+          hasFreeHandling = true;
+        }
+      }
+      const cashbackFeature = user.currentPlan.features?.find(f => f.key === "CASHBACK");
+      if (cashbackFeature && cashbackFeature.value) {
+        cashbackPercentage = parseFloat(cashbackFeature.value) || 0;
+      }
+    }
+
     const pricingSnapshot = await buildCheckoutPricingSnapshot({
       orderItems: orderItemsInput,
       address: normalizedAddress,
       tipAmount,
       discountTotal: Math.max(0, Number(normalizedPayload.discountTotal || 0)),
       session,
+      hasFreeDelivery,
+      hasFreeHandling,
+      cashbackPercentage,
     });
 
     const checkoutGroupId = await generateUniqueCheckoutGroupId({ session });

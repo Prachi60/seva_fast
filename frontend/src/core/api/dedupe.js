@@ -13,7 +13,7 @@ const buildCacheKey = (url, params = {}) => {
  * Generic helper to deduplicate and cache GET requests across the whole app
  */
 export const getWithDedupe = async (url, params = {}, options = {}) => {
-    const ttl = options.ttl || DEFAULT_CACHE_TTL_MS;
+    const ttl = options.ttl !== undefined ? options.ttl : DEFAULT_CACHE_TTL_MS;
     const forceRefresh = options.forceRefresh || false;
     const key = buildCacheKey(url, params);
     const now = Date.now();

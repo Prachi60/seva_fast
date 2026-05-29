@@ -1,5 +1,6 @@
 import Product from "../../models/product.js";
 import Category from "../../models/category.js";
+import Seller from "../../models/seller.js";
 import {
   PRODUCT_APPROVAL_STATUS,
   resolveProductApprovalStatus,
@@ -111,17 +112,41 @@ export function calculateProductSubtotal(items = []) {
   );
 }
 
-export function calculateCategoryCommission(item, categoryConfig) {
+export function calculateCategoryCommission(item, categoryConfig, sellerConfig = null) {
   const quantity = normalizeLineQuantity(item.quantity);
   const itemSubtotal = roundCurrency(normalizeLinePrice(item.price) * quantity);
+  
+  if (sellerConfig?.commissionModel === "ONE_TIME" && sellerConfig?.oneTimeChargePaid) {
+    return {
+      itemSubtotal,
+      adminCommission: 0,
+      sellerPayout: itemSubtotal,
+      appliedCommissionType: "one_time_exempt",
+      appliedCommissionValue: 0,
+      appliedFixedRule: "none",
+    };
+  }
+
   const { type, value, fixedRule } = resolveCommissionConfig(categoryConfig);
+  let effectiveValue = value;
+  let effectiveType = type;
+  let effectiveRule = fixedRule;
+
+  if (sellerConfig?.categoryCommissionOverrides && item.headerCategoryId) {
+    const override = sellerConfig.categoryCommissionOverrides.get(String(item.headerCategoryId));
+    if (override !== undefined && override !== null) {
+      effectiveValue = Number(override);
+      effectiveType = COMMISSION_TYPE.PERCENTAGE; 
+      effectiveRule = COMMISSION_FIXED_RULE.PER_QTY;
+    }
+  }
 
   let adminCommission = 0;
-  if (type === COMMISSION_TYPE.PERCENTAGE) {
-    adminCommission = percentOf(itemSubtotal, value);
+  if (effectiveType === COMMISSION_TYPE.PERCENTAGE) {
+    adminCommission = percentOf(itemSubtotal, effectiveValue);
   } else {
     const fixedBase =
-      fixedRule === COMMISSION_FIXED_RULE.PER_ITEM ? value : value * quantity;
+      effectiveRule === COMMISSION_FIXED_RULE.PER_ITEM ? effectiveValue : effectiveValue * quantity;
     adminCommission = roundCurrency(fixedBase);
   }
 
@@ -132,9 +157,9 @@ export function calculateCategoryCommission(item, categoryConfig) {
     itemSubtotal,
     adminCommission,
     sellerPayout,
-    appliedCommissionType: type,
-    appliedCommissionValue: value,
-    appliedFixedRule: fixedRule,
+    appliedCommissionType: effectiveType,
+    appliedCommissionValue: effectiveValue,
+    appliedFixedRule: effectiveRule,
   };
 }
 
@@ -216,7 +241,7 @@ export function calculateHandlingFee(cartItems, options = {}) {
   };
 }
 
-export function calculateCustomerDeliveryFee(distanceKm, deliverySettings) {
+export function calculateCustomerDeliveryFee(distanceKm, deliverySettings, hasFreeDelivery = false) {
   const mode =
     deliverySettings.deliveryPricingMode || DELIVERY_PRICING_MODE.DISTANCE_BASED;
   const actualDistance = Number(distanceKm || 0);
@@ -225,9 +250,12 @@ export function calculateCustomerDeliveryFee(distanceKm, deliverySettings) {
     : 0;
 
   if (mode === DELIVERY_PRICING_MODE.FIXED_PRICE) {
-    const fixedFee = roundCurrency(
+    let fixedFee = roundCurrency(
       deliverySettings.fixedDeliveryFee ?? deliverySettings.customerBaseDeliveryFee ?? 0,
     );
+    if (hasFreeDelivery) {
+        fixedFee = 0;
+    }
     return {
       deliveryFeeCharged: fixedFee,
       distanceKmActual: normalizedDistance,
@@ -244,8 +272,12 @@ export function calculateCustomerDeliveryFee(distanceKm, deliverySettings) {
   const surcharge = roundCurrency(deliverySettings.incrementalKmSurcharge ?? 0);
 
   if (normalizedDistance <= baseDistance) {
+    let chargedBaseFee = baseFee;
+    if (hasFreeDelivery) {
+        chargedBaseFee = 0;
+    }
     return {
-      deliveryFeeCharged: baseFee,
+      deliveryFeeCharged: chargedBaseFee,
       distanceKmActual: normalizedDistance,
       distanceKmRounded: roundCurrency(baseDistance),
       roundedExtraKm: 0,
@@ -258,7 +290,11 @@ export function calculateCustomerDeliveryFee(distanceKm, deliverySettings) {
   const extraKm = normalizedDistance - baseDistance;
   const roundedExtraKm = ceilKm(extraKm);
   const extraFee = roundCurrency(roundedExtraKm * surcharge);
-  const total = addMoney(baseFee, extraFee);
+  let total = addMoney(baseFee, extraFee);
+
+  if (hasFreeDelivery) {
+    total = 0;
+  }
 
   return {
     deliveryFeeCharged: total,
@@ -389,6 +425,8 @@ export async function generateOrderPaymentBreakdown({
   deliverySettings,
   handlingFeeStrategy,
   session = null,
+  hasFreeDelivery = false,
+  hasFreeHandling = false,
 }) {
   const normalizedItems = Array.isArray(preHydratedItems) && preHydratedItems.length > 0
     ? preHydratedItems
@@ -400,6 +438,11 @@ export async function generateOrderPaymentBreakdown({
   const sellerIds = Array.from(new Set(normalizedItems.map((item) => item.sellerId)));
   if (sellerIds.length > 1) {
     throw new Error("Multi-seller checkout is not supported in current flow");
+  }
+
+  let sellerConfig = null;
+  if (sellerIds.length === 1) {
+    sellerConfig = await Seller.findById(sellerIds[0]).select("commissionModel oneTimeChargePaid categoryCommissionOverrides").lean();
   }
 
   const headerIds = Array.from(
@@ -426,7 +469,7 @@ export async function generateOrderPaymentBreakdown({
 
   const lineItems = normalizedItems.map((item) => {
     const category = categoryById.get(String(item.headerCategoryId));
-    const commission = calculateCategoryCommission(item, category);
+    const commission = calculateCategoryCommission(item, category, sellerConfig);
     productSubtotal = addMoney(productSubtotal, commission.itemSubtotal);
     sellerPayoutTotal = addMoney(sellerPayoutTotal, commission.sellerPayout);
     adminProductCommissionTotal = addMoney(
@@ -450,11 +493,14 @@ export async function generateOrderPaymentBreakdown({
     };
   });
 
-  const handling = calculateHandlingFee(normalizedItems, {
+  let handling = calculateHandlingFee(normalizedItems, {
     handlingFeeStrategy: effectiveHandlingStrategy,
     categoryById,
   });
-  const delivery = calculateCustomerDeliveryFee(distanceKm, effectiveSettings);
+  if (hasFreeHandling) {
+    handling.handlingFeeCharged = 0;
+  }
+  const delivery = calculateCustomerDeliveryFee(distanceKm, effectiveSettings, hasFreeDelivery);
   const rider = calculateRiderPayout(distanceKm, effectiveSettings);
 
   const normalizedDiscount = roundCurrency(discountTotal || 0);

@@ -261,6 +261,17 @@ async function startScheduler() {
     getReturnWindowReleaseJobInterval(),
     getReturnWindowReleaseJobHandler()
   );
+
+  // Register monthly turnover commission job
+  const {
+    getMonthlyTurnoverCommissionJobInterval,
+    getMonthlyTurnoverCommissionJobHandler,
+  } = await import("./app/jobs/monthlyTurnoverCommissionJob.js");
+  registerScheduledJob(
+    'monthlyTurnoverCommissionJob',
+    getMonthlyTurnoverCommissionJobInterval(),
+    getMonthlyTurnoverCommissionJobHandler()
+  );
   
   // Register payout batch job (if enabled)
   if (isPayoutBatchJobEnabled()) {

@@ -63,6 +63,7 @@ const CustomerManagement = React.lazy(
   () => import("../pages/CustomerManagement"),
 );
 const CustomerDetail = React.lazy(() => import("../pages/CustomerDetail"));
+const ReferralsAndSubscriptions = React.lazy(() => import("../pages/ReferralsAndSubscriptions"));
 const UserManagement = React.lazy(() => import("../pages/UserManagement"));
 const Profile = React.lazy(() => import("@/pages/Profile"));
 const FAQManagement = React.lazy(() => import("../pages/FAQManagement"));
@@ -176,6 +177,7 @@ const navItems = [
     color: "green",
   },
   { label: "Customers", path: "/admin/customers", icon: Users, color: "sky" },
+  { label: "Referrals & Plans", path: "/admin/referrals-plans", icon: Sparkles, color: "amber" },
   { label: "FAQs", path: "/admin/faqs", icon: HelpCircle, color: "pink" },
   {
     label: "Orders",
@@ -270,6 +272,7 @@ const AdminRoutes = () => {
         <Route path="/cash-collection" element={<CashCollection />} />
         <Route path="/customers" element={<CustomerManagement />} />
         <Route path="/customers/:id" element={<CustomerDetail />} />
+        <Route path="/referrals-plans" element={<ReferralsAndSubscriptions />} />
         <Route path="/faqs" element={<FAQManagement />} />
         <Route path="/orders/:status" element={<OrdersList />} />
         <Route path="/orders/view/:orderId" element={<OrderDetail />} />

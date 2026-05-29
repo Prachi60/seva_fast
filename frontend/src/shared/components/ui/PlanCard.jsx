@@ -13,7 +13,7 @@ const iconMap = {
     LEVEL_COMMISSION: Percent,
 };
 
-const PlanCard = ({ plan, onEdit, onDelete, isAdmin = false }) => {
+const PlanCard = ({ plan, onEdit, onDelete, isAdmin = false, isActive = false, expiryDate = null }) => {
     return (
         <div 
             className="group relative bg-white rounded-[32px] p-8 shadow-xl shadow-slate-200/50 border border-slate-100 transition-all duration-500 hover:scale-[1.02] hover:shadow-2xl overflow-hidden"
@@ -83,12 +83,17 @@ const PlanCard = ({ plan, onEdit, onDelete, isAdmin = false }) => {
                         </button>
                     </div>
                 ) : (
-                    <button 
-                        className="w-full py-4 bg-black text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-lg shadow-brand-200 transition-all active:scale-95"
-                        style={{ backgroundColor: plan.displayColor }}
-                    >
-                        Subscribe Now
-                    </button>
+                    <div className="flex flex-col gap-2 mt-auto pt-4">
+                        <button 
+                            className={cn(
+                                "w-full py-4 rounded-2xl text-xs font-black uppercase tracking-widest transition-all",
+                                isActive ? "bg-emerald-50 text-emerald-600 cursor-default" : "text-white shadow-lg shadow-brand-200 active:scale-95"
+                            )}
+                            style={!isActive ? { backgroundColor: plan.displayColor } : {}}
+                        >
+                            {isActive ? "Currently Active" : "Subscribe Now"}
+                        </button>
+                    </div>
                 )}
             </div>
         </div>

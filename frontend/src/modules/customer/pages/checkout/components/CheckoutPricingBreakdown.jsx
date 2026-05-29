@@ -138,6 +138,19 @@ const CheckoutPricingBreakdown = React.memo(function CheckoutPricingBreakdown({
             </div>
           )}
 
+          {pricingPreview?.estimatedCashback > 0 && (
+            <motion.div
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ opacity: 1, x: 0 }}
+              className="flex justify-between items-center px-3 py-2 bg-green-50 rounded-xl border border-green-100 mt-2">
+              <span className="text-green-600 font-black text-xs flex items-center gap-2 uppercase tracking-wider">
+                <Wallet size={14} />
+                Estimated Cashback
+              </span>
+              <span className="font-black text-green-600">+₹{pricingPreview.estimatedCashback}</span>
+            </motion.div>
+          )}
+
           {walletAmountToUse > 0 && (
             <motion.div
               initial={{ opacity: 0, x: -5 }}

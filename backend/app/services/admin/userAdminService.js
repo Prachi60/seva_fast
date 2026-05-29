@@ -14,6 +14,22 @@ export async function getUsersData({ page, limit, skip }) {
       },
     },
     {
+      $lookup: {
+        from: "plans",
+        localField: "currentPlan",
+        foreignField: "_id",
+        as: "planDetails",
+      },
+    },
+    {
+      $lookup: {
+        from: "users",
+        localField: "referredBy",
+        foreignField: "_id",
+        as: "referrerDetails",
+      },
+    },
+    {
       $project: {
         id: { $toString: "$_id" },
         name: { $ifNull: ["$name", "Unnamed Customer"] },
@@ -24,8 +40,40 @@ export async function getUsersData({ page, limit, skip }) {
           $cond: [{ $eq: ["$isActive", false] }, "inactive", "active"],
         },
         totalOrders: { $size: "$userOrders" },
+        monthlyOrders: {
+          $size: {
+            $filter: {
+              input: "$userOrders",
+              as: "order",
+              cond: {
+                $and: [
+                  { $gte: ["$$order.createdAt", new Date(new Date().getFullYear(), new Date().getMonth(), 1)] },
+                  { $not: { $in: ["$$order.status", ["cancelled", "declined"]] } }
+                ]
+              }
+            }
+          }
+        },
         totalSpent: { $sum: "$userOrders.pricing.total" },
         lastOrderDate: { $max: "$userOrders.createdAt" },
+        currentPlan: { $arrayElemAt: ["$planDetails", 0] },
+        planExpiry: 1,
+        referredBy: {
+          $let: {
+            vars: { referrer: { $arrayElemAt: ["$referrerDetails", 0] } },
+            in: {
+              $cond: {
+                if: { $ne: ["$$referrer", null] },
+                then: {
+                  id: { $toString: "$$referrer._id" },
+                  name: "$$referrer.name",
+                  phone: "$$referrer.phone"
+                },
+                else: null
+              }
+            }
+          }
+        },
         avatar: {
           $concat: [
             "https://api.dicebear.com/7.x/avataaars/svg?seed=",

@@ -156,15 +156,18 @@ export const getCustomerTransactions = async (req, res) => {
             Transaction.countDocuments({ user: customerId, userModel: "User" }),
         ]);
 
-        const items = transactions.map((t) => ({
-            _id: t._id,
-            type: t.type === "Refund" ? "credit" : "debit",
-            title: t.type === "Refund" ? "Refund" : t.type,
-            amount: Math.abs(t.amount),
-            date: t.createdAt,
-            reference: t.reference,
-            orderId: t.order?.orderId,
-        }));
+        const items = transactions.map((t) => {
+            const isCredit = t.amount > 0 || t.type === "Refund" || t.type === "Cashback";
+            return {
+                _id: t._id,
+                type: isCredit ? "credit" : "debit",
+                title: t.type,
+                amount: Math.abs(t.amount),
+                date: t.createdAt,
+                reference: t.reference,
+                orderId: t.order?.orderId,
+            };
+        });
 
         return handleResponse(res, 200, "Transactions fetched", {
             items,

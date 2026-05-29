@@ -227,6 +227,7 @@ const orderSchema = new mongoose.Schema(
       codRemittedAmount: { type: Number, default: 0 },
       codPendingAmount: { type: Number, default: 0 },
       walletAmount: { type: Number, default: 0 },
+      estimatedCashback: { type: Number, default: 0 },
       distanceKmActual: { type: Number, default: 0 },
       distanceKmRounded: { type: Number, default: 0 },
       snapshots: {
@@ -247,6 +248,8 @@ const orderSchema = new mongoose.Schema(
       sellerPayoutQueued: { type: Boolean, default: false },
       riderPayoutQueued: { type: Boolean, default: false },
       adminEarningCredited: { type: Boolean, default: false },
+      cashbackCredited: { type: Boolean, default: false },
+      levelCommissionCredited: { type: Boolean, default: false },
     },
     status: {
       type: String,

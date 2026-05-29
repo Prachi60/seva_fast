@@ -120,10 +120,20 @@ const PlansPage = () => {
                                         onClick={() => !isActivePlan && handleSubscribeClick(plan)}
                                         className={isActivePlan ? "opacity-90 pointer-events-none" : "cursor-pointer"}
                                     >
-                                        <PlanCard plan={plan} isAdmin={false} />
+                                        <PlanCard 
+                                            plan={plan} 
+                                            isAdmin={false} 
+                                            isActive={isActivePlan}
+                                            expiryDate={user?.planExpiry}
+                                        />
                                         {isActivePlan && (
-                                            <div className="absolute top-4 right-4 bg-emerald-500 text-white px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest shadow-md">
-                                                Active Plan
+                                            <div className="absolute top-4 right-4 flex flex-col items-end gap-1">
+                                                <div className="bg-emerald-500 text-white px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest shadow-md">
+                                                    Active Plan
+                                                </div>
+                                                <div className="bg-white/90 backdrop-blur-sm px-2 py-0.5 rounded text-[9px] font-bold text-slate-500 uppercase shadow-sm border border-slate-100">
+                                                    Valid till: {new Date(user.planExpiry).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                                </div>
                                             </div>
                                         )}
                                     </div>

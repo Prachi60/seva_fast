@@ -131,19 +131,6 @@ export const requireApprovedSeller = async (req, res, next) => {
 ================================ */
 export const requireActivePlan = async (req, res, next) => {
   try {
-    if (req.user?.role !== "customer" && req.user?.role !== "user") {
-      return next(); // Skip check for non-customers
-    }
-    const customer = await Customer.findById(req.user.id).select("currentPlan planExpiry isActive").lean();
-    if (!customer) {
-      return handleResponse(res, 401, "Customer not found");
-    }
-    if (!customer.currentPlan) {
-      return handleResponse(res, 403, "Please subscribe to a plan to start shopping", { requirePlan: true });
-    }
-    if (customer.planExpiry && new Date(customer.planExpiry) < new Date()) {
-      return handleResponse(res, 403, "Your plan has expired. Please renew to continue shopping", { requirePlan: true });
-    }
     next();
   } catch(error) {
     return handleResponse(res, 500, "Unable to validate plan status");

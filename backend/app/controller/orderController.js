@@ -12,7 +12,7 @@ import Payout from "../models/payout.js";
 import OrderOtp from "../models/orderOtp.js";
 import handleResponse from "../utils/helper.js";
 import getPagination from "../utils/pagination.js";
-import { WORKFLOW_STATUS, DEFAULT_SELLER_TIMEOUT_MS } from "../constants/orderWorkflow.js";
+import { WORKFLOW_STATUS, DEFAULT_SELLER_TIMEOUT_MS, workflowFromLegacyStatus } from "../constants/orderWorkflow.js";
 import { ORDER_PAYMENT_STATUS } from "../constants/finance.js";
 import {
   afterPlaceOrderV2,
@@ -274,6 +274,8 @@ export const getMyOrders = async (req, res) => {
           Order.countDocuments({ customer: customerId }),
         ]);
 
+        console.log(`[getMyOrders Debug] Customer ID: ${customerId} | Total Orders: ${total} | Skip: ${skip} | Limit: ${limit}`);
+        
         return {
           items: orders,
           page,
@@ -880,6 +882,9 @@ export const updateOrderStatus = async (req, res) => {
     if (status) {
       order.status = status;
       order.orderStatus = status;
+      if (order.workflowVersion >= 2) {
+        order.workflowStatus = workflowFromLegacyStatus(status);
+      }
     }
     if (deliveryBoyId) order.deliveryBoy = deliveryBoyId;
 

@@ -61,8 +61,26 @@ const SellerDetail = () => {
             bankName: 'HDFC Bank',
             accountNo: 'XXXX XXXX 1234',
             ifsc: 'HDFC0001234'
-        }
+        },
+        commissionModel: 'CATEGORY_WISE',
+        oneTimeChargePaid: false
     });
+    
+    const [isSavingModel, setIsSavingModel] = useState(false);
+
+    const handleCommissionModelUpdate = async (newModel, isPaid) => {
+        setIsSavingModel(true);
+        // Simulate API call to updateSellerDetails
+        setTimeout(() => {
+            setSeller(prev => ({
+                ...prev,
+                commissionModel: newModel,
+                oneTimeChargePaid: isPaid
+            }));
+            setIsSavingModel(false);
+            showToast('Commission model updated successfully', 'success');
+        }, 1000);
+    };
 
     const handleRefresh = () => {
         setIsRefreshing(true);
@@ -387,7 +405,58 @@ const SellerDetail = () => {
                                             </div>
                                         </div>
 
-                                        <div className="p-6 bg-rose-50 rounded-xl border border-rose-100">
+                                        <div className="mt-8">
+                                            <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Financial Configuration</h5>
+                                            <div className="p-6 bg-slate-50 rounded-xl border border-slate-100 space-y-6">
+                                                <div>
+                                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">Commission Model</label>
+                                                    <div className="flex bg-white rounded-xl p-1 border border-slate-200">
+                                                        <button 
+                                                            onClick={() => handleCommissionModelUpdate('CATEGORY_WISE', seller.oneTimeChargePaid)}
+                                                            className={cn("flex-1 py-2 text-xs font-bold rounded-lg transition-all", seller.commissionModel === 'CATEGORY_WISE' ? "bg-primary text-white shadow-sm" : "text-slate-500 hover:bg-slate-50")}
+                                                        >
+                                                            Category Wise (%)
+                                                        </button>
+                                                        <button 
+                                                            onClick={() => handleCommissionModelUpdate('ONE_TIME', seller.oneTimeChargePaid)}
+                                                            className={cn("flex-1 py-2 text-xs font-bold rounded-lg transition-all", seller.commissionModel === 'ONE_TIME' ? "bg-primary text-white shadow-sm" : "text-slate-500 hover:bg-slate-50")}
+                                                        >
+                                                            One-Time Charge
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                                
+                                                {seller.commissionModel === 'ONE_TIME' && (
+                                                    <div className="p-4 bg-amber-50 rounded-xl border border-amber-100 flex items-center justify-between">
+                                                        <div>
+                                                            <p className="text-xs font-bold text-amber-900">One-Time Payment Status</p>
+                                                            <p className="text-[10px] text-amber-700/80 mt-1">If paid, 0% commission is applied to all orders.</p>
+                                                        </div>
+                                                        <button 
+                                                            onClick={() => handleCommissionModelUpdate(seller.commissionModel, !seller.oneTimeChargePaid)}
+                                                            disabled={isSavingModel}
+                                                            className={cn("px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all", seller.oneTimeChargePaid ? "bg-emerald-500 text-white shadow-lg shadow-emerald-200" : "bg-slate-200 text-slate-600")}
+                                                        >
+                                                            {seller.oneTimeChargePaid ? '✓ PAID' : 'MARK AS PAID'}
+                                                        </button>
+                                                    </div>
+                                                )}
+                                                
+                                                {seller.commissionModel === 'CATEGORY_WISE' && (
+                                                    <div className="p-4 bg-white rounded-xl border border-slate-200 flex items-center justify-between">
+                                                        <div>
+                                                            <p className="text-xs font-bold text-slate-700">Custom Category Overrides</p>
+                                                            <p className="text-[10px] text-slate-500 mt-1">Set custom % for this seller instead of global defaults.</p>
+                                                        </div>
+                                                        <button className="px-4 py-2 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all">
+                                                            CONFIGURE
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        <div className="p-6 bg-rose-50 rounded-xl border border-rose-100 mt-8">
                                             <h5 className="text-[10px] font-black text-rose-600 uppercase tracking-widest mb-2 flex items-center gap-2">
                                                 <XCircle className="h-4 w-4" />
                                                 Safety Controls
