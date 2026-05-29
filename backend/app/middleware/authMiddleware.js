@@ -125,14 +125,3 @@ export const requireApprovedSeller = async (req, res, next) => {
     return handleResponse(res, 500, "Unable to validate seller approval status");
   }
 };
-
-/* ===============================
-   Require Active Plan for Customers
-================================ */
-export const requireActivePlan = async (req, res, next) => {
-  try {
-    next();
-  } catch(error) {
-    return handleResponse(res, 500, "Unable to validate plan status");
-  }
-};

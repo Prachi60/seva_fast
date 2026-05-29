@@ -2,7 +2,7 @@ import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
     User, MapPin, Package, CreditCard, Wallet, ChevronRight,
-    LogOut, ShieldCheck, Heart, HelpCircle, Info, Edit2, ChevronLeft, Bell, Sparkles, Copy, Share2
+    LogOut, ShieldCheck, Heart, HelpCircle, Info, Edit2, ChevronLeft, Bell
 } from 'lucide-react';
 import { useAuth } from '@core/context/AuthContext';
 import { useSettings } from '@core/context/SettingsContext';
@@ -13,9 +13,6 @@ import {
     ensureFcmTokenRegistered,
     startForegroundPushListener
 } from '@core/firebase/pushClient';
-import { Camera, X } from 'lucide-react';
-import axiosInstance from '@/core/api/axios';
-import LogoImage from '@/assets/Logo.png';
 
 const TEST_PUSH_STATUS_POLL_INTERVAL_MS = 1500;
 const TEST_PUSH_STATUS_MAX_ATTEMPTS = 20;
@@ -26,24 +23,6 @@ const ProfilePage = () => {
     const { settings } = useSettings();
     const appName = settings?.appName || 'App';
     const [isTestingPush, setIsTestingPush] = React.useState(false);
-    const [isCustomOrderModalOpen, setIsCustomOrderModalOpen] = React.useState(false);
-
-    const handleShare = async () => {
-        if (navigator.share) {
-            try {
-                await navigator.share({
-                    title: `Join me on ${appName}`,
-                    text: `Hey! Use my referral code ${user?.referralCode || ''} to get amazing deals on ${appName}!`,
-                    url: window.location.origin,
-                });
-            } catch (err) {
-                console.log("Error sharing:", err);
-            }
-        } else {
-            navigator.clipboard.writeText(window.location.origin);
-            toast.success("App link copied to clipboard!");
-        }
-    };
 
     const formatIndiaPhone = (value) => {
         const raw = String(value || '').trim();
@@ -177,17 +156,22 @@ const ProfilePage = () => {
                     <div className="relative z-10 space-y-5">
                         {/* Name and Phone */}
                         <div>
-                            <div className="flex items-center gap-3 mb-1">
-                                <h2 className="text-xl sm:text-2xl font-black tracking-[0.15em] text-white drop-shadow-md uppercase font-mono">
-                                    {user?.name || 'CUSTOMER'}
-                                </h2>
-                                <span className="bg-gradient-to-r from-amber-300 to-amber-500 text-amber-950 px-2 py-0.5 rounded shadow-sm text-[9px] font-black uppercase tracking-widest leading-none flex items-center h-fit">
-                                    {user?.currentPlan?.name || 'BASIC PLAN'}
-                                </span>
-                            </div>
-                            <p className="text-slate-300 text-xs font-medium flex items-center gap-1 font-mono opacity-80 tracking-wider">
-                                +91 {formatIndiaPhone(user?.phone)}
+                            <h2 className="text-base leading-tight font-semibold text-slate-900">{user?.name || 'Customer'}</h2>
+                            <p className="text-slate-500 text-xs font-medium flex items-center gap-1 mt-0.5">
+                                <span className="bg-slate-100 px-1.5 py-0.5 rounded text-[10px] uppercase">India</span> +91 {formatIndiaPhone(user?.phone)}
                             </p>
+                            {user?.referralCode && (
+                                <button 
+                                    onClick={() => {
+                                        navigator.clipboard.writeText(user.referralCode);
+                                        toast.success("Referral code copied to clipboard!");
+                                    }}
+                                    className="flex items-center gap-1.5 bg-brand-50 hover:bg-brand-100 text-brand-600 px-2 py-1 rounded-md transition-colors"
+                                >
+                                    <span className="text-[10px] font-black uppercase tracking-wider">Ref Code: {user.referralCode}</span>
+                                    <Copy size={12} />
+                                </button>
+                            )}
                         </div>
 
                         {/* Referral Code & Plan Expiry Row */}

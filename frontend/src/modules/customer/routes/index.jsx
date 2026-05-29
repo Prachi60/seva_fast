@@ -29,12 +29,6 @@ import { CartAnimationProvider } from '../context/CartAnimationContext';
 import { LocationProvider } from '../context/LocationContext';
 
 import ProtectedRoute from '../../../core/guards/ProtectedRoute';
-import { useAuth } from '../../../core/context/AuthContext';
-import { useLocation, Navigate } from 'react-router-dom';
-
-const PlanEnforcer = ({ children }) => {
-    return children;
-};
 
 const CustomerRoutes = () => {
     return (

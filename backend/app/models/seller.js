@@ -135,28 +135,6 @@ const sellerSchema = new mongoose.Schema(
       default: 5, // Default 5km
     },
     lastLogin: Date,
-    onboardedBy: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
-    },
-    commissionModel: {
-      type: String,
-      enum: ["CATEGORY_WISE", "ONE_TIME"],
-      default: "CATEGORY_WISE",
-    },
-    oneTimeChargePaid: {
-      type: Boolean,
-      default: false,
-    },
-    oneTimeChargeAmount: {
-      type: Number,
-      default: 0,
-    },
-    categoryCommissionOverrides: {
-      type: Map,
-      of: Number, // Percentage override keyed by category ID
-      default: {},
-    },
   },
   { timestamps: true },
 );
