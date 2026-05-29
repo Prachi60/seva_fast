@@ -45,7 +45,6 @@ import {
   verifyToken,
   allowRoles,
   requireApprovedSeller,
-  requireActivePlan,
 } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
@@ -55,14 +54,12 @@ router.post(
   "/checkout/preview",
   verifyToken,
   allowRoles("customer", "user", "admin"),
-  requireActivePlan,
   previewCheckoutFinance,
 );
 router.post(
   "/",
   verifyToken,
   allowRoles("customer", "user", "admin"),
-  requireActivePlan,
   createOrderWithFinancialSnapshot,
 );
 router.post(
@@ -96,7 +93,6 @@ router.post(
   "/place",
   verifyToken,
   allowRoles("customer", "user", "admin"),
-  requireActivePlan,
   placeOrder,
 );
 router.get("/my-orders", verifyToken, getMyOrders);

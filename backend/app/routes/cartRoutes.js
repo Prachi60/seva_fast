@@ -6,12 +6,12 @@ import {
     removeFromCart,
     clearCart
 } from "../controller/cartController.js";
-import { verifyToken, requireActivePlan } from "../middleware/authMiddleware.js";
+import { verifyToken } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
 router.use(verifyToken);
-router.use(requireActivePlan);
+
 
 router.get("/", getCart);
 router.post("/add", addToCart);
