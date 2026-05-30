@@ -2,11 +2,13 @@ import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
     User, MapPin, Package, CreditCard, Wallet, ChevronRight,
-    LogOut, ShieldCheck, Heart, HelpCircle, Info, Edit2, ChevronLeft, Bell
+    LogOut, ShieldCheck, Heart, HelpCircle, Info, Edit2, ChevronLeft, Bell,
+    Share2, Copy, Sparkles, Camera, X
 } from 'lucide-react';
 import { useAuth } from '@core/context/AuthContext';
 import { useSettings } from '@core/context/SettingsContext';
 import { customerApi } from '../services/customerApi';
+import axiosInstance from '@core/api/axios';
 import { toast } from 'sonner';
 import {
     describePushSupport,
@@ -23,6 +25,27 @@ const ProfilePage = () => {
     const { settings } = useSettings();
     const appName = settings?.appName || 'App';
     const [isTestingPush, setIsTestingPush] = React.useState(false);
+    const [isCustomOrderModalOpen, setIsCustomOrderModalOpen] = React.useState(false);
+
+    const handleShare = async () => {
+        const shareData = {
+            title: appName,
+            text: `Check out ${appName}!`,
+            url: window.location.origin,
+        };
+        try {
+            if (navigator.share) {
+                await navigator.share(shareData);
+            } else {
+                await navigator.clipboard.writeText(window.location.origin);
+                toast.success('Link copied to clipboard!');
+            }
+        } catch (error) {
+            if (error?.name !== 'AbortError') {
+                toast.error('Could not share at this time.');
+            }
+        }
+    };
 
     const formatIndiaPhone = (value) => {
         const raw = String(value || '').trim();
