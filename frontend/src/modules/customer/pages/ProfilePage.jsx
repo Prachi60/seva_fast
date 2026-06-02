@@ -185,17 +185,12 @@ const ProfilePage = () => {
                                 <p className="text-slate-400 text-xs font-medium flex items-center gap-1 mt-1 mb-2">
                                     <span className="bg-white/10 px-1.5 py-0.5 rounded text-[10px] uppercase text-white">India</span> +91 {formatIndiaPhone(user?.phone)}
                                 </p>
-                                {user?.referralCode && (
-                                    <button 
-                                        onClick={() => {
-                                            navigator.clipboard.writeText(user.referralCode);
-                                            toast.success("Referral code copied to clipboard!");
-                                        }}
-                                        className="flex items-center gap-1.5 bg-white/10 hover:bg-white/20 text-white px-2 py-1 rounded-md transition-colors w-fit"
-                                    >
-                                        <span className="text-[10px] font-black uppercase tracking-wider">Ref Code: {user.referralCode}</span>
-                                        <Copy size={12} />
-                                    </button>
+                                {user?.referredBy && (
+                                    <div className="flex items-center gap-1.5 bg-white/10 text-white px-2 py-1 rounded-md w-fit">
+                                        <span className="text-[10px] font-black uppercase tracking-wider">
+                                            Referred By: {user.referredBy.name || "Admin"}
+                                        </span>
+                                    </div>
                                 )}
                             </div>
 
