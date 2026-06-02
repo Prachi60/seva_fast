@@ -375,19 +375,32 @@ const CustomerAuth = () => {
                                                     onBlur={(e) => e.target.style.borderColor = '#F3F4F6'}
                                                 />
                                             </div>
-                                            <div className="relative group">
-                                                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 transition-colors" style={{ color: 'inherit' }}>
-                                                    <Star size={18} className="group-focus-within:text-[var(--theme-color)]" style={{ color: 'inherit' }} />
+                                            <div>
+                                                <div className="relative group">
+                                                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 transition-colors" style={{ color: 'inherit' }}>
+                                                        <Star size={18} className="group-focus-within:text-[var(--theme-color)]" style={{ color: 'inherit' }} />
+                                                    </div>
+                                                    <input
+                                                        name="referralCode"
+                                                        placeholder="Referral Code (Required)"
+                                                        required
+                                                        className="w-full bg-gray-50 border border-gray-100 rounded-2xl pl-12 pr-4 py-4 text-sm font-bold text-gray-800 outline-none focus:bg-white transition-all uppercase"
+                                                        style={{ '--theme-color': activeCategory.theme }}
+                                                        onChange={(e) => setFormData({ ...formData, referralCode: e.target.value })}
+                                                        onFocus={(e) => e.target.style.borderColor = activeCategory.theme}
+                                                        onBlur={(e) => e.target.style.borderColor = '#F3F4F6'}
+                                                    />
                                                 </div>
-                                                <input
-                                                    name="referralCode"
-                                                    placeholder="Referral Code (Optional)"
-                                                    className="w-full bg-gray-50 border border-gray-100 rounded-2xl pl-12 pr-4 py-4 text-sm font-bold text-gray-800 outline-none focus:bg-white transition-all uppercase"
-                                                    style={{ '--theme-color': activeCategory.theme }}
-                                                    onChange={(e) => setFormData({ ...formData, referralCode: e.target.value })}
-                                                    onFocus={(e) => e.target.style.borderColor = activeCategory.theme}
-                                                    onBlur={(e) => e.target.style.borderColor = '#F3F4F6'}
-                                                />
+                                                <p className="text-[10px] text-gray-400 font-bold tracking-wider mt-2 ml-2 leading-tight">
+                                                    Don't have a referral code? Use Admin Code: <span 
+                                                        onClick={() => {
+                                                            navigator.clipboard.writeText('SEVAFAST');
+                                                            toast.success('Admin code copied!');
+                                                        }}
+                                                        className="text-gray-900 font-black cursor-pointer hover:underline"
+                                                        title="Click to copy"
+                                                    >SEVAFAST</span>
+                                                </p>
                                             </div>
                                             </>
                                         )}

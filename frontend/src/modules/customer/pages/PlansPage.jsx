@@ -18,7 +18,7 @@ const PlansPage = () => {
     const [referralCode, setReferralCode] = useState('');
     
     const navigate = useNavigate();
-    const { user, login } = useAuth();
+    const { user, refreshUser } = useAuth();
 
     useEffect(() => {
         fetchPlans();
@@ -44,6 +44,10 @@ const PlansPage = () => {
 
     const initiatePhonePe = async () => {
         if (!selectedPlan) return;
+        if (!referralCode.trim()) {
+            toast.error("Referral code is required to activate a plan.");
+            return;
+        }
         setReferralModalOpen(false);
         setProcessingPlanId(selectedPlan._id);
         
@@ -55,10 +59,10 @@ const PlansPage = () => {
 
             if (initRes.data.result.success) {
                 toast.success("Plan activated successfully!");
-                if (user && login) {
-                    login({ ...user, ...initRes.data.result.user, token: user.token });
+                if (refreshUser) {
+                    await refreshUser();
                 }
-                navigate('/', { replace: true });
+                // The page will now re-render immediately with the active plan displaying.
             } else {
                 toast.error("Failed to activate plan");
             }
@@ -167,23 +171,42 @@ const PlansPage = () => {
                             </button>
                             
                             <div className="mb-6">
-                                <h3 className="text-xl font-black text-slate-900 tracking-tight">Have a Referral Code?</h3>
-                                <p className="text-sm font-medium text-slate-500 mt-1">
-                                    Enter it below, or simply proceed to payment.
+                                <h3 className="text-xl font-black text-slate-900 tracking-tight">Enter Referral Code</h3>
+                                <p className="text-sm font-medium text-slate-500 mt-1 mb-3">
+                                    A valid referral code is required to proceed with payment.
                                 </p>
+                                <div className="bg-amber-50/80 border border-amber-100 rounded-xl p-3 flex items-start gap-3">
+                                    <div className="w-6 h-6 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                                        <span className="text-amber-600 text-xs font-black">!</span>
+                                    </div>
+                                    <div>
+                                        <p className="text-[10px] font-bold text-amber-900/60 uppercase tracking-widest mb-0.5">Default Admin Code</p>
+                                        <p className="text-xs font-bold text-amber-900 leading-tight">
+                                            Don't have a referral code? Use <span 
+                                                onClick={() => {
+                                                    navigator.clipboard.writeText('SEVAFAST');
+                                                    toast.success('Admin code copied!');
+                                                }}
+                                                className="font-black text-amber-700 tracking-wider cursor-pointer hover:underline"
+                                                title="Click to copy"
+                                            >SEVAFAST</span> to continue.
+                                        </p>
+                                    </div>
+                                </div>
                             </div>
 
                             <input 
                                 type="text"
                                 value={referralCode}
                                 onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
-                                placeholder="ENTER CODE (OPTIONAL)"
+                                placeholder="ENTER CODE (REQUIRED)"
                                 className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-4 text-sm font-black text-slate-800 placeholder:text-slate-400 outline-none focus:border-slate-800 focus:ring-4 focus:ring-slate-100 transition-all uppercase tracking-widest mb-6"
                             />
 
                             <button 
                                 onClick={initiatePhonePe}
-                                className="w-full py-4 bg-slate-900 text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-xl shadow-slate-200 transition-all active:scale-95 flex items-center justify-center gap-2"
+                                disabled={!referralCode.trim()}
+                                className="w-full py-4 bg-slate-900 text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-xl shadow-slate-200 transition-all active:scale-95 disabled:opacity-50 disabled:active:scale-100 flex items-center justify-center gap-2"
                             >
                                 Activate Plan (₹{selectedPlan?.price})
                             </button>

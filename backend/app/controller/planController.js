@@ -4,6 +4,7 @@ import handleResponse from "../utils/helper.js";
 import mongoose from "mongoose";
 import { StandardCheckoutClient, Env, StandardCheckoutPayRequest } from '@phonepe-pg/pg-sdk-node';
 import crypto from "crypto";
+import Transaction from "../models/transaction.js";
 
 function getPhonePeClient() {
     const clientId = String(process.env.PHONEPE_CLIENT_ID || "").trim();
@@ -116,6 +117,41 @@ export const createPlanOrder = async (req, res) => {
             { new: true }
         ).populate("currentPlan");
 
+        const finalReferrerId = referredBy || updatedUser.referredBy;
+        if (finalReferrerId) {
+            const rewardFeature = plan.features.find(f => f.key === "REFERRAL_REWARD");
+            if (rewardFeature && rewardFeature.value) {
+                let rewardAmount = 0;
+                if (rewardFeature.unit === "%") {
+                    rewardAmount = (plan.price * Number(rewardFeature.value)) / 100;
+                } else {
+                    rewardAmount = Number(rewardFeature.value);
+                }
+
+                if (rewardAmount > 0) {
+                    const referrer = await User.findById(finalReferrerId);
+                    if (referrer) {
+                        referrer.walletBalance = (referrer.walletBalance || 0) + rewardAmount;
+                        await referrer.save();
+
+                        await Transaction.create({
+                            user: referrer._id,
+                            userModel: "User",
+                            type: "Commission",
+                            amount: rewardAmount,
+                            status: "Settled",
+                            reference: `PLAN-COMM-${userId}-${Date.now()}`,
+                            meta: {
+                                planId: plan._id,
+                                referredUser: userId,
+                                description: `Referral Commission for Plan Purchase (${plan.name})`
+                            }
+                        });
+                    }
+                }
+            }
+        }
+
         return handleResponse(res, 200, "Plan activated successfully (Bypass Mode)", { success: true, user: updatedUser });
     } catch (error) {
         return handleResponse(res, 500, error.message);
@@ -163,6 +199,41 @@ export const verifyPlanPayment = async (req, res) => {
             updateData,
             { new: true }
         ).populate("currentPlan");
+
+        const finalReferrerId = referredBy || updatedUser.referredBy;
+        if (finalReferrerId) {
+            const rewardFeature = plan.features.find(f => f.key === "REFERRAL_REWARD");
+            if (rewardFeature && rewardFeature.value) {
+                let rewardAmount = 0;
+                if (rewardFeature.unit === "%") {
+                    rewardAmount = (plan.price * Number(rewardFeature.value)) / 100;
+                } else {
+                    rewardAmount = Number(rewardFeature.value);
+                }
+
+                if (rewardAmount > 0) {
+                    const referrer = await User.findById(finalReferrerId);
+                    if (referrer) {
+                        referrer.walletBalance = (referrer.walletBalance || 0) + rewardAmount;
+                        await referrer.save();
+
+                        await Transaction.create({
+                            user: referrer._id,
+                            userModel: "User",
+                            type: "Commission",
+                            amount: rewardAmount,
+                            status: "Settled",
+                            reference: `PLAN-COMM-${userId}-${Date.now()}`,
+                            meta: {
+                                planId: plan._id,
+                                referredUser: userId,
+                                description: `Referral Commission for Plan Purchase (${plan.name})`
+                            }
+                        });
+                    }
+                }
+            }
+        }
 
         return handleResponse(res, 200, "Subscribed to plan successfully", updatedUser);
     } catch (error) {

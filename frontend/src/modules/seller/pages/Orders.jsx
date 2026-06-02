@@ -35,6 +35,7 @@ import { getLegacyStatusFromOrder } from '@/shared/utils/orderStatus';
 import { Loader2 } from 'lucide-react';
 import Pagination from '@shared/components/ui/Pagination';
 import { DatePicker } from "@/components/ui/date-picker";
+import { onSellerOrderNew } from '@core/services/orderSocket';
 
 
 const Orders = () => {
@@ -78,6 +79,18 @@ const Orders = () => {
         if (!hasMountedRef.current) return;
         fetchOrders(page, false);
         // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [page, startDate, endDate]);
+
+    // Socket listener for new orders
+    useEffect(() => {
+        const getToken = () => localStorage.getItem('auth_seller');
+        const unSub = onSellerOrderNew(getToken, (payload) => {
+            showToast("New order received!", "info");
+            fetchOrders(page, false);
+        });
+        return () => {
+            if (typeof unSub === 'function') unSub();
+        };
     }, [page, startDate, endDate]);
 
     const fetchOrders = async (requestedPage = 1, showPageLoader = false) => {

@@ -82,6 +82,7 @@ const AdminWallet = () => {
                         systemFloat: summary.systemFloatCOD || 0,
                         sellerPendingPayouts: summary.sellerPendingPayouts || 0,
                         deliveryPendingPayouts: summary.deliveryPendingPayouts || 0,
+                        adminReferralEarnings: summary.adminReferralEarnings || 0,
                     },
                     transactions: {
                         items: mappedTransactions,
@@ -196,6 +197,15 @@ const AdminWallet = () => {
             color: 'purple',
             bg: 'bg-purple-50',
             iconColor: 'text-purple-500'
+        },
+        {
+            label: 'Admin Referral Earnings',
+            value: `₹${(walletData.stats?.adminReferralEarnings || 0).toLocaleString()}`,
+            description: 'Earnings from SEVAFAST referrals',
+            icon: DollarSign,
+            color: 'teal',
+            bg: 'bg-teal-50',
+            iconColor: 'text-teal-500'
         }
     ];
 

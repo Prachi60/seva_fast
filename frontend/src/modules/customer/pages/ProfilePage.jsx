@@ -152,7 +152,7 @@ const ProfilePage = () => {
                     <div className="absolute -bottom-24 -left-24 w-48 h-48 bg-indigo-500/20 rounded-full blur-3xl"></div>
                     <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10 mix-blend-overlay"></div>
                     
-                    <div className="relative z-10 flex justify-between items-start mb-8">
+                    <div className="relative z-10 flex justify-between items-start mb-4">
                         
                         {/* Left Side: Brand Text */}
                         <div className="flex items-center">
@@ -176,30 +176,31 @@ const ProfilePage = () => {
                         </div>
                     </div>
 
-                    <div className="relative z-10 space-y-5">
-                        {/* Name and Phone */}
-                        <div>
-                            <h2 className="text-base leading-tight font-semibold text-slate-900">{user?.name || 'Customer'}</h2>
-                            <p className="text-slate-500 text-xs font-medium flex items-center gap-1 mt-0.5">
-                                <span className="bg-slate-100 px-1.5 py-0.5 rounded text-[10px] uppercase">India</span> +91 {formatIndiaPhone(user?.phone)}
-                            </p>
-                            {user?.referralCode && (
-                                <button 
-                                    onClick={() => {
-                                        navigator.clipboard.writeText(user.referralCode);
-                                        toast.success("Referral code copied to clipboard!");
-                                    }}
-                                    className="flex items-center gap-1.5 bg-brand-50 hover:bg-brand-100 text-brand-600 px-2 py-1 rounded-md transition-colors"
-                                >
-                                    <span className="text-[10px] font-black uppercase tracking-wider">Ref Code: {user.referralCode}</span>
-                                    <Copy size={12} />
-                                </button>
-                            )}
-                        </div>
-
-                        {/* Referral Code & Plan Expiry Row */}
-                        <div className="flex items-end justify-between pt-2">
+                    <div className="relative z-10 flex justify-between gap-4">
+                        {/* Left Column */}
+                        <div className="flex flex-col justify-between flex-1">
+                            {/* Name and Phone */}
                             <div>
+                                <h2 className="text-xl leading-tight font-black text-white tracking-wide">{user?.name || 'Customer'}</h2>
+                                <p className="text-slate-400 text-xs font-medium flex items-center gap-1 mt-1 mb-2">
+                                    <span className="bg-white/10 px-1.5 py-0.5 rounded text-[10px] uppercase text-white">India</span> +91 {formatIndiaPhone(user?.phone)}
+                                </p>
+                                {user?.referralCode && (
+                                    <button 
+                                        onClick={() => {
+                                            navigator.clipboard.writeText(user.referralCode);
+                                            toast.success("Referral code copied to clipboard!");
+                                        }}
+                                        className="flex items-center gap-1.5 bg-white/10 hover:bg-white/20 text-white px-2 py-1 rounded-md transition-colors w-fit"
+                                    >
+                                        <span className="text-[10px] font-black uppercase tracking-wider">Ref Code: {user.referralCode}</span>
+                                        <Copy size={12} />
+                                    </button>
+                                )}
+                            </div>
+
+                            {/* Referral Code */}
+                            <div className="mt-8">
                                 <p className="text-[9px] text-slate-400 uppercase tracking-widest mb-1 font-bold">Referral Code</p>
                                 {user?.referralCode ? (
                                     <div 
@@ -207,7 +208,7 @@ const ProfilePage = () => {
                                             navigator.clipboard.writeText(user.referralCode);
                                             toast.success("Referral code copied to clipboard!");
                                         }}
-                                        className="flex items-center gap-2 cursor-pointer group"
+                                        className="flex items-center gap-2 cursor-pointer group w-fit"
                                     >
                                         <span className="text-lg font-bold font-mono tracking-widest group-hover:text-amber-300 transition-colors">
                                             {user.referralCode}
@@ -218,8 +219,27 @@ const ProfilePage = () => {
                                     <span className="text-sm font-mono opacity-50 tracking-widest">N/A</span>
                                 )}
                             </div>
-                            
-                            <div className="text-right">
+                        </div>
+
+                        {/* Right Column */}
+                        <div className="flex flex-col items-end justify-between flex-shrink-0">
+                            {/* QR Code */}
+                            {user?.referralCode && (
+                                <div className="flex flex-col items-center">
+                                    <div className="bg-white p-1.5 rounded-xl shadow-sm">
+                                        <img 
+                                            src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(`${window.location.origin}/signup?ref=${user.referralCode}`)}`} 
+                                            alt="Signup QR Code" 
+                                            className="w-[72px] h-[72px] object-contain mix-blend-multiply"
+                                            crossOrigin="anonymous"
+                                        />
+                                    </div>
+                                    <span className="text-[8px] font-black uppercase tracking-widest text-slate-400 mt-2 text-center leading-tight">Scan to<br/>Join</span>
+                                </div>
+                            )}
+
+                            {/* Valid Thru */}
+                            <div className="text-right mt-6">
                                 <p className="text-[9px] text-slate-400 uppercase tracking-widest mb-1 font-bold">Valid Thru</p>
                                 <div className="text-lg font-bold font-mono tracking-widest">
                                     {user?.currentPlan && user?.planExpiry ? new Date(user.planExpiry).toLocaleDateString('en-US', { month: '2-digit', year: '2-digit' }).replace('/', ' / ') : 'N / A'}

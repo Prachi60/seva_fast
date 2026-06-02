@@ -147,8 +147,12 @@ const PlanEditorModal = ({ isOpen, onClose, onSave, plan }) => {
                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Yearly Price (₹)</label>
                             <input
                                 type="number"
+                                min="0"
                                 value={formData.price}
-                                onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                                onChange={(e) => {
+                                    const val = e.target.value;
+                                    if (val === '' || Number(val) >= 0) setFormData({ ...formData, price: val });
+                                }}
                                 placeholder="0.00"
                                 className="w-full px-6 py-4 bg-slate-50 border-none rounded-2xl text-sm font-bold outline-none focus:ring-2 focus:ring-brand-500/10"
                             />
@@ -187,8 +191,14 @@ const PlanEditorModal = ({ isOpen, onClose, onSave, plan }) => {
                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Validity (Days)</label>
                             <input
                                 type="number"
+                                min="0"
                                 value={formData.validityDays}
-                                onChange={(e) => setFormData({ ...formData, validityDays: parseInt(e.target.value) })}
+                                onChange={(e) => {
+                                    const val = e.target.value;
+                                    if (val === '' || Number(val) >= 0) {
+                                        setFormData({ ...formData, validityDays: val === '' ? '' : parseInt(val) });
+                                    }
+                                }}
                                 className="w-full px-6 py-4 bg-slate-50 border-none rounded-2xl text-sm font-bold outline-none focus:ring-2 focus:ring-brand-500/10"
                             />
                         </div>
@@ -256,11 +266,15 @@ const PlanEditorModal = ({ isOpen, onClose, onSave, plan }) => {
                                                                     <div className="relative flex-1">
                                                                         <input
                                                                             type="number"
-                                                                            value={values[i] || 0}
+                                                                            min="0"
+                                                                            value={values[i] !== undefined ? values[i] : 0}
                                                                             onChange={(e) => {
-                                                                                const newValues = [...values];
-                                                                                newValues[i] = parseFloat(e.target.value) || 0;
-                                                                                handleFeatureValueChange(feature.key, newValues);
+                                                                                const val = e.target.value;
+                                                                                if (val === '' || Number(val) >= 0) {
+                                                                                    const newValues = [...values];
+                                                                                    newValues[i] = val === '' ? '' : parseFloat(val);
+                                                                                    handleFeatureValueChange(feature.key, newValues);
+                                                                                }
                                                                             }}
                                                                             className="w-full pl-4 pr-10 py-2 bg-white border-none rounded-xl text-sm font-bold outline-none"
                                                                         />
@@ -274,8 +288,14 @@ const PlanEditorModal = ({ isOpen, onClose, onSave, plan }) => {
                                                     <div className="relative flex-1">
                                                         <input
                                                             type="number"
-                                                            value={feature.value}
-                                                            onChange={(e) => handleFeatureValueChange(feature.key, parseFloat(e.target.value))}
+                                                            min="0"
+                                                            value={feature.value !== undefined ? feature.value : ''}
+                                                            onChange={(e) => {
+                                                                const val = e.target.value;
+                                                                if (val === '' || Number(val) >= 0) {
+                                                                    handleFeatureValueChange(feature.key, val === '' ? '' : parseFloat(val));
+                                                                }
+                                                            }}
                                                             className="w-full pl-4 pr-10 py-2 bg-white border-none rounded-xl text-sm font-bold outline-none"
                                                         />
                                                         <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-black text-slate-300">{feature.unit}</span>

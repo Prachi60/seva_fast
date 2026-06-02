@@ -1,6 +1,7 @@
 import Wallet from "../../models/wallet.js";
 import Payout from "../../models/payout.js";
 import Order from "../../models/order.js";
+import Customer from "../../models/customer.js";
 import {
   ORDER_PAYMENT_STATUS,
   OWNER_TYPE,
@@ -292,6 +293,9 @@ export async function getAdminFinanceSummary() {
     ),
   );
 
+  const adminReferralUser = await Customer.findOne({ role: "admin", referralCode: "SEVAFAST" }).lean();
+  const adminReferralEarnings = roundCurrency(adminReferralUser?.walletBalance || 0);
+
   return {
     totalPlatformEarning,
     totalAdminEarning: roundCurrency(adminEarning[0]?.amount || 0),
@@ -302,5 +306,6 @@ export async function getAdminFinanceSummary() {
     deliveryPendingPayouts: roundCurrency(riderPendingPayouts),
     reconciledOnlineInflows: roundCurrency(onlineCollection[0]?.amount || 0),
     reconciledCODInflows: roundCurrency(codReconciled[0]?.amount || 0),
+    adminReferralEarnings,
   };
 }

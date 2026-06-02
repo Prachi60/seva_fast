@@ -142,8 +142,32 @@ export async function issueCustomerOtp({
   if (!customer) {
     let referredBy = null;
     if (referralCode) {
-      const referrer = await Customer.findOne({ referralCode: referralCode.toUpperCase() });
-      if (referrer) referredBy = referrer._id;
+      if (referralCode.toUpperCase() === "SEVAFAST") {
+        let adminUser = await Customer.findOne({ referralCode: "SEVAFAST", role: "admin" });
+        if (!adminUser) {
+           adminUser = await Customer.create({
+               name: "SEVAFAST Admin",
+               phone: "+910000000000",
+               role: "admin",
+               referralCode: "SEVAFAST",
+               isVerified: true
+           });
+        }
+        referredBy = adminUser._id;
+      } else {
+        const referrer = await Customer.findOne({ referralCode: referralCode.toUpperCase() });
+        if (referrer) {
+          referredBy = referrer._id;
+        } else {
+          const err = new Error("Invalid Referral Code");
+          err.statusCode = 400;
+          throw err;
+        }
+      }
+    } else if (flow === "signup") {
+      const err = new Error("Referral Code is required");
+      err.statusCode = 400;
+      throw err;
     }
     customer = await Customer.create({
       name: name || "Customer",

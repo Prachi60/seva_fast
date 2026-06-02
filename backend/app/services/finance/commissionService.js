@@ -17,13 +17,22 @@ export const processMonthlyTurnoverCommissions = async () => {
         
         for (const seller of sellers) {
             const user = await User.findById(seller.onboardedBy);
-            if (!user || !user.currentPlan || user.planExpiry < now) continue;
+            const isAdmin = user && user.role === 'admin' && user.referralCode === 'SEVAFAST';
+            const hasActivePlan = user && user.currentPlan && user.planExpiry >= now;
             
-            const plan = await Plan.findById(user.currentPlan);
-            if (!plan) continue;
+            if (!user || (!isAdmin && !hasActivePlan)) continue;
             
-            const commissionFeature = plan.features.find(f => f.key === "TURNOVER_COMMISSION");
-            const commissionPercent = commissionFeature ? Number(commissionFeature.value) : 0;
+            let commissionPercent = 0;
+            
+            if (isAdmin) {
+                commissionPercent = 5; // Default Admin Turnover Commission e.g. 5%
+            } else {
+                const plan = await Plan.findById(user.currentPlan);
+                if (!plan) continue;
+                
+                const commissionFeature = plan.features.find(f => f.key === "TURNOVER_COMMISSION");
+                commissionPercent = commissionFeature ? Number(commissionFeature.value) : 0;
+            }
             
             if (commissionPercent <= 0) continue;
             
@@ -78,6 +87,22 @@ export const processMonthlyTurnoverCommissions = async () => {
 
 export const processOrderLevelCommissions = async (order) => {
     if (!order || !order.customer || !order.pricing?.total) return;
+
+    // RULE: Only process commission for the customer's FIRST delivered order.
+    try {
+        const previousDeliveredOrdersCount = await Order.countDocuments({
+            customer: order.customer,
+            workflowStatus: 'delivered',
+            _id: { $ne: order._id }
+        });
+        if (previousDeliveredOrdersCount > 0) {
+            console.log(`[CommissionService] Skipping level commission: Order ${order._id} is not the first order for customer ${order.customer}`);
+            return;
+        }
+    } catch (err) {
+        console.error("Error checking previous orders for commission:", err);
+        return;
+    }
     
     let currentUserId = order.customer;
     let orderAmount = order.pricing.total;
@@ -98,37 +123,53 @@ export const processOrderLevelCommissions = async (order) => {
             currentLevel++;
             
             const referrer = await User.findById(referrerId);
-            if (referrer && referrer.currentPlan && referrer.planExpiry > new Date()) {
+            
+            const isAdmin = referrer && referrer.role === 'admin' && referrer.referralCode === 'SEVAFAST';
+            const hasActivePlan = referrer && referrer.currentPlan && referrer.planExpiry > new Date();
+            
+            let commissionPercent = 0;
+            
+            if (isAdmin) {
+                const adminLevelCommissions = [10, 5, 2, 1, 0.5]; // Default Admin Commission Structure
+                commissionPercent = adminLevelCommissions[currentLevel - 1] || 0;
+            } else if (hasActivePlan) {
                 const plan = await Plan.findById(referrer.currentPlan).lean();
                 if (plan) {
                     const levelFeature = plan.features.find(f => f.key === "LEVEL_COMMISSION");
                     if (levelFeature && Array.isArray(levelFeature.value)) {
-                        let commissionPercent = levelFeature.value[currentLevel - 1];
-                        if (commissionPercent && typeof commissionPercent === 'number' && commissionPercent > 0) {
-                            let commissionAmount = (orderAmount * commissionPercent) / 100;
-                            
-                            referrer.walletBalance = (referrer.walletBalance || 0) + commissionAmount;
-                            await referrer.save();
-                            
-                            await Transaction.create({
-                                user: referrer._id,
-                                userModel: "User",
-                                type: "Commission",
-                                amount: commissionAmount,
-                                status: "Settled",
-                                reference: `LVL-COMM-${orderIdString}-${currentLevel}`,
-                                meta: {
-                                    orderId: order._id,
-                                    level: currentLevel,
-                                    commissionPercent: commissionPercent,
-                                    orderAmount: orderAmount,
-                                    description: `Level ${currentLevel} Referral Commission (${commissionPercent}%)`
-                                }
-                            });
-                        }
+                        commissionPercent = levelFeature.value[currentLevel - 1] || 0;
                     }
                 }
             }
+            
+            // Fallback for non-admin referrers without an active plan, or if plan has no commission set
+            if (!isAdmin && (!hasActivePlan || commissionPercent === 0) && currentLevel <= 5) {
+                const defaultCommissions = [10, 5, 2, 1, 0.5]; // Default up to 5 levels
+                commissionPercent = defaultCommissions[currentLevel - 1] || 0;
+            }
+            
+            if (commissionPercent && typeof commissionPercent === 'number' && commissionPercent > 0) {
+                    let commissionAmount = (orderAmount * commissionPercent) / 100;
+                    
+                    referrer.walletBalance = (referrer.walletBalance || 0) + commissionAmount;
+                    await referrer.save();
+                    
+                    await Transaction.create({
+                        user: referrer._id,
+                        userModel: "User",
+                        type: "Commission",
+                        amount: commissionAmount,
+                        status: "Settled",
+                        reference: `LVL-COMM-${orderIdString}-${currentLevel}`,
+                        meta: {
+                            orderId: order._id,
+                            level: currentLevel,
+                            commissionPercent: commissionPercent,
+                            orderAmount: orderAmount,
+                            description: `Level ${currentLevel} Referral Commission (${commissionPercent}%)`
+                        }
+                    });
+                }
             
             currentUserId = referrerId;
         }
