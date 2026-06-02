@@ -6,6 +6,7 @@ export const adminApi = {
     getStats: () => axiosInstance.get('/admin/stats'),
     getUsers: (params) => axiosInstance.get('/admin/users', { params }),
     getUserById: (id) => axiosInstance.get(`/admin/users/${id}`),
+    updateUserWallet: (id, data) => axiosInstance.put(`/admin/users/${id}/wallet`, data),
     getActiveSellers: (params) => axiosInstance.get('/admin/sellers/active', { params }),
     getSellerLocations: (params) => axiosInstance.get('/admin/sellers/locations', { params }),
     getPendingSellers: (params) => axiosInstance.get('/admin/sellers/pending', { params }),

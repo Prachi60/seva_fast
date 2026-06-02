@@ -161,7 +161,7 @@ export const getCustomerTransactions = async (req, res) => {
             return {
                 _id: t._id,
                 type: isCredit ? "credit" : "debit",
-                title: t.type,
+                title: t.meta?.description || t.type,
                 amount: Math.abs(t.amount),
                 date: t.createdAt,
                 reference: t.reference,

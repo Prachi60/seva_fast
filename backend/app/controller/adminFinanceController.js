@@ -4,6 +4,8 @@ import Seller from "../models/seller.js";
 import Delivery from "../models/delivery.js";
 import handleResponse from "../utils/helper.js";
 import { getAdminFinanceSummary } from "../services/finance/walletService.js";
+import User from "../models/customer.js";
+import Transaction from "../models/transaction.js";
 import { getLedgerEntries } from "../services/finance/ledgerService.js";
 import { bulkProcessPayouts } from "../services/finance/payoutService.js";
 import { exportFinanceStatement } from "../services/finance/statementService.js";
@@ -55,6 +57,31 @@ export const getAdminFinanceLedgerController = async (req, res) => {
       return handleResponse(res, 400, validated.message);
     }
     const ledger = await getLedgerEntries(validated.value);
+    
+    // FETCH ADMIN COMMISSIONS
+    const adminUser = await User.findOne({ role: "admin", referralCode: "SEVAFAST" }).lean();
+    if (adminUser) {
+        const adminCommissions = await Transaction.find({ user: adminUser._id, type: { $in: ["Commission", "Incentive", "Admin Credit", "Admin Debit"] } }).lean();
+        
+        const commissionEntries = adminCommissions.map(txn => {
+            const isDebit = txn.type === "Admin Debit";
+            return {
+                _id: txn._id,
+                transactionId: txn.reference,
+                type: txn.type === "Admin Credit" || txn.type === "Admin Debit" ? `ADMIN_MANUAL_ADJUSTMENT` : `REFERRAL_EARNING`,
+                direction: isDebit ? "DEBIT" : "CREDIT",
+                amount: Math.abs(txn.amount) * (isDebit ? -1 : 1),
+                status: txn.status,
+                actorType: "USER",
+                description: txn.meta?.description || txn.meta?.reason || txn.type,
+                createdAt: txn.createdAt
+            }
+        });
+        
+        ledger.items = [...ledger.items, ...commissionEntries].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        ledger.total += commissionEntries.length;
+    }
+
     return handleResponse(res, 200, "Finance ledger fetched", ledger);
   } catch (error) {
     return handleResponse(res, 500, error.message);

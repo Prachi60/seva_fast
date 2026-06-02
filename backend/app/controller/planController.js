@@ -144,7 +144,7 @@ export const createPlanOrder = async (req, res) => {
                             meta: {
                                 planId: plan._id,
                                 referredUser: userId,
-                                description: `Referral Commission for Plan Purchase (${plan.name})`
+                                description: `Referral Commission for Plan Purchase from ${updatedUser.name}`
                             }
                         });
                     }

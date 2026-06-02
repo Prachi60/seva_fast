@@ -508,6 +508,9 @@ const AdminWallet = () => {
                                                             </div>
                                                             <div>
                                                                 <p className="text-sm font-bold text-slate-900 group-hover:text-primary transition-colors">{txn.type.replace('_', ' ').toUpperCase()}</p>
+                                                                {txn.notes && txn.notes !== txn.type && (
+                                                                    <p className="text-[11px] font-semibold text-slate-500 mt-0.5">{txn.notes}</p>
+                                                                )}
                                                                 <p className="text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-tighter">{txn.id} • {txn.date}</p>
                                                             </div>
                                                         </div>

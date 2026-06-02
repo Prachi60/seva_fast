@@ -129,6 +129,7 @@ export async function getUserByIdData(id) {
         name: { $ifNull: ["$name", "Unnamed Customer"] },
         email: 1,
         phone: 1,
+        walletBalance: { $ifNull: ["$walletBalance", 0] },
         joinedDate: "$createdAt",
         status: {
           $cond: [{ $eq: ["$isActive", false] }, "inactive", "active"],
@@ -172,5 +173,44 @@ export async function getUserByIdData(id) {
       date: order.createdAt,
       status: order.status,
     })),
+  };
+}
+
+export async function updateUserWalletData(id, amount, action, reason) {
+  const user = await User.findById(id);
+  if (!user) throw new Error("Customer not found");
+
+  const amountNum = Number(amount);
+  if (isNaN(amountNum) || amountNum <= 0) throw new Error("Invalid amount");
+
+  let previousBalance = user.walletBalance || 0;
+  if (action === "deduct" && previousBalance < amountNum) {
+    throw new Error("Insufficient wallet balance");
+  }
+
+  if (action === "add") {
+    user.walletBalance = previousBalance + amountNum;
+  } else if (action === "deduct") {
+    user.walletBalance = previousBalance - amountNum;
+  } else {
+    throw new Error("Invalid action");
+  }
+
+  await user.save();
+
+  const Transaction = (await import("../../models/transaction.js")).default;
+  await Transaction.create({
+    user: user._id,
+    userModel: "User",
+    type: action === "add" ? "Admin Credit" : "Admin Debit",
+    amount: amountNum,
+    status: "Settled",
+    reference: `ADMIN-${Date.now()}`,
+    meta: { reason: reason || "Admin adjustment" },
+  });
+
+  return {
+    walletBalance: user.walletBalance,
+    previousBalance,
   };
 }

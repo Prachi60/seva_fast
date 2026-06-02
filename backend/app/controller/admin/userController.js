@@ -3,6 +3,7 @@ import getPagination from "../../utils/pagination.js";
 import {
   getUserByIdData,
   getUsersData,
+  updateUserWalletData,
 } from "../../services/admin/userAdminService.js";
 
 export const getUsers = async (req, res) => {
@@ -36,5 +37,21 @@ export const getUserById = async (req, res) => {
     );
   } catch (error) {
     return handleResponse(res, 500, error.message);
+  }
+};
+
+export const updateUserWallet = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { amount, action, reason } = req.body;
+    
+    if (!amount || !action) {
+      return handleResponse(res, 400, "Amount and action (add/deduct) are required");
+    }
+
+    const result = await updateUserWalletData(id, amount, action, reason);
+    return handleResponse(res, 200, "Wallet updated successfully", result);
+  } catch (error) {
+    return handleResponse(res, 400, error.message);
   }
 };

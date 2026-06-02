@@ -31,6 +31,7 @@ import {
     getCashSettlementHistory,
     getUsers,
     getUserById,
+    updateUserWallet,
     getSellers,
     getSellerLocations,
     getPlatformSettings,
@@ -148,6 +149,7 @@ router.put(
 );
 router.get("/users", verifyToken, allowRoles("admin"), getUsers);
 router.get("/users/:id", verifyToken, allowRoles("admin"), getUserById);
+router.put("/users/:id/wallet", verifyToken, allowRoles("admin"), updateUserWallet);
 router.get("/sellers", verifyToken, allowRoles("admin"), getSellers);
 router.get("/sellers/locations", verifyToken, allowRoles("admin"), getSellerLocations);
 router.get("/sellers/active", verifyToken, allowRoles("admin"), getActiveSellers);

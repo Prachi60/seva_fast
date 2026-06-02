@@ -108,6 +108,14 @@ export const processOrderLevelCommissions = async (order) => {
     let orderAmount = order.pricing.total;
     let orderIdString = order._id.toString();
     
+    let orderCustomerName = 'Unknown User';
+    try {
+        const orderCustomer = await User.findById(currentUserId).lean();
+        if (orderCustomer && orderCustomer.name) {
+            orderCustomerName = orderCustomer.name;
+        }
+    } catch (e) {}
+
     let visited = new Set();
     let currentLevel = 0; 
     
@@ -166,7 +174,7 @@ export const processOrderLevelCommissions = async (order) => {
                             level: currentLevel,
                             commissionPercent: commissionPercent,
                             orderAmount: orderAmount,
-                            description: `Level ${currentLevel} Referral Commission (${commissionPercent}%)`
+                            description: `Referral Commission (${commissionPercent}%) from ${orderCustomerName}`
                         }
                     });
                 }

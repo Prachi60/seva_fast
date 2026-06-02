@@ -44,8 +44,11 @@ const CustomerDetail = () => {
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [isNotifModalOpen, setIsNotifModalOpen] = useState(false);
     const [isRestrictModalOpen, setIsRestrictModalOpen] = useState(false);
+    const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
 
     // Form states
+    const [walletForm, setWalletForm] = useState({ amount: '', action: 'add', reason: '' });
+    const [submittingWallet, setSubmittingWallet] = useState(false);
     const [notifMessage, setNotifMessage] = useState('');
     const [notes, setNotes] = useState('Prefer morning deliveries. Use the building entrance on the north side.');
 
@@ -107,6 +110,26 @@ const CustomerDetail = () => {
         setCustomer({ ...customer, status: newStatus });
         setIsRestrictModalOpen(false);
         showToast(`Account successfully ${newStatus === 'restricted' ? 'restricted' : 'activated'}`, newStatus === 'restricted' ? 'warning' : 'success');
+    };
+
+    const handleWalletUpdate = async (e) => {
+        e.preventDefault();
+        try {
+            setSubmittingWallet(true);
+            const { amount, action, reason } = walletForm;
+            const { data } = await adminApi.updateUserWallet(id, { amount, action, reason });
+            if (data.success) {
+                setCustomer(prev => ({ ...prev, walletBalance: data.result.walletBalance }));
+                showToast(`Successfully ${action === 'add' ? 'added' : 'deducted'} ₹${amount}`, 'success');
+                setIsWalletModalOpen(false);
+                setWalletForm({ amount: '', action: 'add', reason: '' });
+            }
+        } catch (err) {
+            console.error("Wallet update error", err);
+            showToast(err.response?.data?.message || 'Failed to update wallet', 'error');
+        } finally {
+            setSubmittingWallet(false);
+        }
     };
 
     const handleSaveNotes = () => {
@@ -251,6 +274,19 @@ const CustomerDetail = () => {
                             </div>
                         </div>
                         <ShoppingBag className="absolute -bottom-4 -right-4 h-24 w-24 text-white/10 group-hover:scale-110 transition-transform" />
+                    </Card>
+
+                    <Card className="p-6 bg-white rounded-xl border-none shadow-md ring-1 ring-slate-100 flex flex-col justify-between">
+                        <div>
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Wallet Balance</p>
+                            <h4 className="text-3xl font-black text-slate-900">₹{(customer.walletBalance || 0).toLocaleString('en-IN')}</h4>
+                        </div>
+                        <button
+                            onClick={() => setIsWalletModalOpen(true)}
+                            className="mt-4 w-full py-3 bg-brand-50 hover:bg-brand-100 text-brand-700 rounded-xl text-xs font-black uppercase tracking-widest transition-all border border-brand-200"
+                        >
+                            Manage Funds
+                        </button>
                     </Card>
 
                     <Card className="p-6 bg-white rounded-xl border-none shadow-md ring-1 ring-slate-100">
@@ -520,6 +556,85 @@ const CustomerDetail = () => {
                         </button>
                     </div>
                 </div>
+            </Modal>
+
+            <Modal isOpen={isWalletModalOpen} onClose={() => !submittingWallet && setIsWalletModalOpen(false)} title="Manage Customer Wallet">
+                <form onSubmit={handleWalletUpdate} className="space-y-6">
+                    <div className="p-4 bg-slate-50 rounded-2xl flex items-center justify-between border border-slate-100">
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Current Balance</p>
+                        <p className="text-xl font-black text-slate-900">₹{(customer?.walletBalance || 0).toLocaleString('en-IN')}</p>
+                    </div>
+                    
+                    <div className="space-y-4">
+                        <div>
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">Action</label>
+                            <div className="grid grid-cols-2 gap-3">
+                                <button
+                                    type="button"
+                                    onClick={() => setWalletForm({ ...walletForm, action: 'add' })}
+                                    className={cn(
+                                        "py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all",
+                                        walletForm.action === 'add' ? "bg-emerald-500 text-white shadow-lg shadow-emerald-200" : "bg-slate-50 text-slate-500 hover:bg-slate-100"
+                                    )}
+                                >
+                                    Add Funds
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setWalletForm({ ...walletForm, action: 'deduct' })}
+                                    className={cn(
+                                        "py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all",
+                                        walletForm.action === 'deduct' ? "bg-rose-500 text-white shadow-lg shadow-rose-200" : "bg-slate-50 text-slate-500 hover:bg-slate-100"
+                                    )}
+                                >
+                                    Deduct Funds
+                                </button>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">Amount (₹)</label>
+                            <input
+                                type="number"
+                                required
+                                min="1"
+                                value={walletForm.amount}
+                                onKeyDown={(e) => {
+                                    if (['-', '+', 'e', 'E'].includes(e.key)) {
+                                        e.preventDefault();
+                                    }
+                                }}
+                                onChange={(e) => {
+                                    let val = e.target.value;
+                                    if (val !== '' && Number(val) < 0) {
+                                        val = Math.abs(Number(val)).toString();
+                                    }
+                                    setWalletForm({ ...walletForm, amount: val });
+                                }}
+                                placeholder="Enter amount"
+                                className="w-full px-5 py-3.5 bg-slate-50 border-none rounded-2xl text-sm font-bold outline-none focus:ring-2 focus:ring-brand-500/10 transition-all shadow-sm"
+                            />
+                        </div>
+
+                        <div>
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">Reason (Optional)</label>
+                            <textarea
+                                value={walletForm.reason}
+                                onChange={(e) => setWalletForm({ ...walletForm, reason: e.target.value })}
+                                placeholder="E.g. Refund for damaged item..."
+                                className="w-full px-5 py-3.5 bg-slate-50 border-none rounded-2xl text-sm font-bold outline-none focus:ring-2 focus:ring-brand-500/10 transition-all shadow-sm min-h-[80px]"
+                            />
+                        </div>
+                    </div>
+                    
+                    <button 
+                        type="submit" 
+                        disabled={!walletForm.amount || submittingWallet}
+                        className="w-full py-4 bg-black hover:bg-brand-500 text-primary-foreground rounded-2xl font-black text-[11px] uppercase tracking-widest transition-all shadow-lg active:scale-95 disabled:opacity-50"
+                    >
+                        {submittingWallet ? 'PROCESSING...' : 'CONFIRM TRANSACTION'}
+                    </button>
+                </form>
             </Modal>
         </div>
     );
