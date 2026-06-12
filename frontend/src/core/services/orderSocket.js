@@ -172,6 +172,13 @@ export function onDeliveryBroadcastWithdrawn(getToken, handler) {
   return () => s.off("delivery:broadcast:withdrawn", handler);
 }
 
+export function onOrderAssigned(getToken, handler) {
+  const s = getOrderSocket(getToken);
+  if (!s || typeof handler !== "function") return () => {};
+  s.on("order:assigned", handler);
+  return () => s.off("order:assigned", handler);
+}
+
 export function onSellerOrderNew(getToken, handler) {
   const s = getOrderSocket(getToken);
   if (!s || typeof handler !== "function") return () => {};

@@ -113,6 +113,11 @@ const deliverySchema = new mongoose.Schema(
         lastLocationAt: {
             type: Date,
         },
+        sellerId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Seller",
+            default: null,
+        },
     },
     {
         timestamps: true,

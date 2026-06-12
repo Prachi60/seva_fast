@@ -383,7 +383,7 @@ export async function generateReturnPickupOtp(orderId, requester = {}) {
           type: 'return_pickup',
         },
       });
-      emitOrderStatusUpdate(orderId, { returnOtpSent: true }, order.customer);
+      emitOrderStatusUpdate(orderId, { returnOtpSent: true }, order.customer, null, order._id);
     }
 
     return { success: true, otp, expiresAt };

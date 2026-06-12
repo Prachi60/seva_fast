@@ -144,8 +144,8 @@ const ProductManagement = () => {
             return toast.error('Only product editing is allowed for admins');
         }
 
-        if (!formData.name || !formData.price || !formData.stock || !formData.header || !formData.categoryId || !formData.subcategoryId) {
-            return toast.error('Please fill all required fields, including categories');
+        if (!formData.name || !formData.price || !formData.stock || !formData.header || !formData.categoryId) {
+            return toast.error('Please fill all required fields, including Main Group and Specific Category');
         }
 
         setIsSaving(true);
@@ -846,7 +846,7 @@ const ProductManagement = () => {
                                                 </div>
                                             </div>
                                             <div className="space-y-1.5 flex flex-col">
-                                                <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest ml-1">Sub-Category <span className="text-rose-500">*</span></label>
+                                                <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest ml-1">Sub-Category <span className="text-slate-400 font-medium lowercase italic">(Optional)</span></label>
                                                 <select
                                                     value={formData.subcategoryId}
                                                     onChange={(e) => setFormData({ ...formData, subcategoryId: e.target.value })}

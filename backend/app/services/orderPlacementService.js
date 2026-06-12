@@ -410,6 +410,7 @@ export async function placeOrderAtomic({
       const groupGrandTotal = Number(pricingSnapshot.aggregateBreakdown?.grandTotal || 1);
       const proportionateWallet = (orderGrandTotal / groupGrandTotal) * walletAmount;
 
+      const isOrderScheduled = entry.items.some(item => item.deliveryType === "scheduled");
       const order = new Order({
         orderId,
         customer: customerId,
@@ -417,6 +418,7 @@ export async function placeOrderAtomic({
         items: mapOrderItemsForPersistence(entry.items),
         address: normalizedAddress,
         paymentMode,
+        deliveryType: isOrderScheduled ? "scheduled" : "instant",
         paymentStatus:
           paymentMode === "ONLINE"
             ? ORDER_PAYMENT_STATUS.CREATED

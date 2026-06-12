@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Plus, Trash2, Shield, Gift, Zap, Users, TrendingUp, ShoppingBag, Layers, Percent } from 'lucide-react';
+import { X, Plus, Trash2, Shield, Gift, Zap, Users, TrendingUp, ShoppingBag, Layers, Percent, Target, Trophy } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const featureOptions = [
@@ -10,32 +10,55 @@ const featureOptions = [
     { key: "TURNOVER_COMMISSION", label: "Turnover Commission", unit: "%", icon: TrendingUp },
     { key: "REFERRAL_LEVELS", label: "Referral Levels", unit: "Count", icon: Layers },
     { key: "LEVEL_COMMISSION", label: "Level-wise Commission", unit: "%", icon: Percent },
+    { key: "MONTHLY_REFERRAL_TARGET", label: "Monthly Referral Target", unit: "Count", icon: Target },
+    { key: "MONTHLY_TARGET_REWARD", label: "Monthly Target Incentive", unit: "₹", icon: Trophy },
 ];
+
+const cleanNumberInput = (val) => {
+    if (val === '') return '';
+    // Prevent negative numbers (remove any minus sign)
+    let cleaned = val.replace(/-/g, '');
+    if (/^0[0-9]/.test(cleaned) && !cleaned.startsWith('0.')) {
+        cleaned = cleaned.replace(/^0+/, '');
+    }
+    return cleaned;
+};
 
 const PlanEditorModal = ({ isOpen, onClose, onSave, plan }) => {
     const [formData, setFormData] = useState({
         name: '',
         price: '',
+        originalPrice: '',
         description: '',
         displayColor: '#0ea5e9',
         features: [],
-        validityDays: 365,
+        validityDays: '365',
     });
 
     useEffect(() => {
         if (plan) {
             setFormData({
                 ...plan,
-                price: plan.price.toString(),
+                price: plan.price !== undefined && plan.price !== null ? plan.price.toString() : '',
+                originalPrice: plan.originalPrice !== undefined && plan.originalPrice !== null ? plan.originalPrice.toString() : '',
+                validityDays: plan.validityDays !== undefined && plan.validityDays !== null ? plan.validityDays.toString() : '365',
+                features: (plan.features || []).map(f => {
+                    if (f.unit === 'Boolean') return f;
+                    if (f.key === 'LEVEL_COMMISSION') {
+                        return { ...f, value: (Array.isArray(f.value) ? f.value : []).map(val => val !== undefined && val !== null ? val.toString() : '') };
+                    }
+                    return { ...f, value: f.value !== undefined && f.value !== null ? f.value.toString() : '' };
+                })
             });
         } else {
             setFormData({
                 name: '',
                 price: '',
+                originalPrice: '',
                 description: '',
                 displayColor: '#0ea5e9',
                 features: [],
-                validityDays: 365,
+                validityDays: '365',
             });
         }
     }, [plan]);
@@ -68,7 +91,7 @@ const PlanEditorModal = ({ isOpen, onClose, onSave, plan }) => {
                     key: feature.key,
                     label: feature.label,
                     unit: feature.unit,
-                    value: feature.key === 'LEVEL_COMMISSION' ? [] : (feature.unit === 'Boolean' ? true : 0)
+                    value: feature.key === 'LEVEL_COMMISSION' ? [] : (feature.unit === 'Boolean' ? true : '')
                 }]
             }));
         }
@@ -86,6 +109,28 @@ const PlanEditorModal = ({ isOpen, onClose, onSave, plan }) => {
             ...prev,
             features: prev.features.map(f => f.key === key ? { ...f, value } : f)
         }));
+    };
+
+    const handleSubmit = () => {
+        const cleanedData = {
+            ...formData,
+            price: formData.price === '' ? 0 : parseFloat(formData.price),
+            originalPrice: formData.originalPrice === '' ? undefined : parseFloat(formData.originalPrice),
+            validityDays: formData.validityDays === '' ? 365 : parseInt(formData.validityDays),
+            features: formData.features.map(f => {
+                if (f.unit === 'Boolean') {
+                    return f;
+                }
+                if (f.key === 'LEVEL_COMMISSION') {
+                    const parsedArray = (Array.isArray(f.value) ? f.value : []).map(val => 
+                        val === '' ? 0 : parseFloat(val)
+                    );
+                    return { ...f, value: parsedArray };
+                }
+                return { ...f, value: f.value === '' ? 0 : parseFloat(f.value) };
+            })
+        };
+        onSave(cleanedData);
     };
 
     if (!isOpen) return null;
@@ -132,7 +177,7 @@ const PlanEditorModal = ({ isOpen, onClose, onSave, plan }) => {
                 {/* Body */}
                 <div className="flex-1 p-8 space-y-8">
                     {/* Basic Info */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <div className="space-y-3">
                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Plan Name</label>
                             <input
@@ -144,16 +189,28 @@ const PlanEditorModal = ({ isOpen, onClose, onSave, plan }) => {
                             />
                         </div>
                         <div className="space-y-3">
-                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Yearly Price (₹)</label>
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Offer Price (₹)</label>
                             <input
-                                type="number"
-                                min="0"
+                                type="text"
+                                inputMode="decimal"
                                 value={formData.price}
                                 onChange={(e) => {
-                                    const val = e.target.value;
-                                    if (val === '' || Number(val) >= 0) setFormData({ ...formData, price: val });
+                                    setFormData({ ...formData, price: cleanNumberInput(e.target.value) });
                                 }}
-                                placeholder="0.00"
+                                placeholder="0"
+                                className="w-full px-6 py-4 bg-slate-50 border-none rounded-2xl text-sm font-bold outline-none focus:ring-2 focus:ring-brand-500/10"
+                            />
+                        </div>
+                        <div className="space-y-3">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Strike Price (₹)</label>
+                            <input
+                                type="text"
+                                inputMode="decimal"
+                                value={formData.originalPrice}
+                                onChange={(e) => {
+                                    setFormData({ ...formData, originalPrice: cleanNumberInput(e.target.value) });
+                                }}
+                                placeholder="e.g. 1999"
                                 className="w-full px-6 py-4 bg-slate-50 border-none rounded-2xl text-sm font-bold outline-none focus:ring-2 focus:ring-brand-500/10"
                             />
                         </div>
@@ -190,14 +247,11 @@ const PlanEditorModal = ({ isOpen, onClose, onSave, plan }) => {
                         <div className="space-y-3">
                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Validity (Days)</label>
                             <input
-                                type="number"
-                                min="0"
+                                type="text"
+                                inputMode="numeric"
                                 value={formData.validityDays}
                                 onChange={(e) => {
-                                    const val = e.target.value;
-                                    if (val === '' || Number(val) >= 0) {
-                                        setFormData({ ...formData, validityDays: val === '' ? '' : parseInt(val) });
-                                    }
+                                    setFormData({ ...formData, validityDays: cleanNumberInput(e.target.value) });
                                 }}
                                 className="w-full px-6 py-4 bg-slate-50 border-none rounded-2xl text-sm font-bold outline-none focus:ring-2 focus:ring-brand-500/10"
                             />
@@ -265,16 +319,14 @@ const PlanEditorModal = ({ isOpen, onClose, onSave, plan }) => {
                                                                     <span className="text-[10px] font-black text-slate-500 uppercase w-12">Lvl {i + 1}</span>
                                                                     <div className="relative flex-1">
                                                                         <input
-                                                                            type="number"
-                                                                            min="0"
-                                                                            value={values[i] !== undefined ? values[i] : 0}
+                                                                            type="text"
+                                                                            inputMode="decimal"
+                                                                            value={values[i] !== undefined ? values[i] : ''}
                                                                             onChange={(e) => {
-                                                                                const val = e.target.value;
-                                                                                if (val === '' || Number(val) >= 0) {
-                                                                                    const newValues = [...values];
-                                                                                    newValues[i] = val === '' ? '' : parseFloat(val);
-                                                                                    handleFeatureValueChange(feature.key, newValues);
-                                                                                }
+                                                                                const cleaned = cleanNumberInput(e.target.value);
+                                                                                const newValues = [...values];
+                                                                                newValues[i] = cleaned;
+                                                                                handleFeatureValueChange(feature.key, newValues);
                                                                             }}
                                                                             className="w-full pl-4 pr-10 py-2 bg-white border-none rounded-xl text-sm font-bold outline-none"
                                                                         />
@@ -287,14 +339,12 @@ const PlanEditorModal = ({ isOpen, onClose, onSave, plan }) => {
                                                 ) : (
                                                     <div className="relative flex-1">
                                                         <input
-                                                            type="number"
-                                                            min="0"
+                                                            type="text"
+                                                            inputMode="decimal"
                                                             value={feature.value !== undefined ? feature.value : ''}
                                                             onChange={(e) => {
-                                                                const val = e.target.value;
-                                                                if (val === '' || Number(val) >= 0) {
-                                                                    handleFeatureValueChange(feature.key, val === '' ? '' : parseFloat(val));
-                                                                }
+                                                                const cleaned = cleanNumberInput(e.target.value);
+                                                                handleFeatureValueChange(feature.key, cleaned);
                                                             }}
                                                             className="w-full pl-4 pr-10 py-2 bg-white border-none rounded-xl text-sm font-bold outline-none"
                                                         />
@@ -319,7 +369,7 @@ const PlanEditorModal = ({ isOpen, onClose, onSave, plan }) => {
                 {/* Footer */}
                 <div className="sticky bottom-0 p-8 border-t border-slate-100 bg-slate-50/95 backdrop-blur-md z-20 mt-auto">
                     <button
-                        onClick={() => onSave(formData)}
+                        onClick={handleSubmit}
                         className="w-full py-5 bg-black text-white rounded-[24px] text-xs font-black uppercase tracking-widest shadow-xl shadow-slate-200 active:scale-95 transition-all"
                     >
                         {plan ? 'Save Changes' : 'Create Plan'}

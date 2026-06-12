@@ -1,5 +1,6 @@
 import Delivery from "../models/delivery.js";
 import jwt from "jsonwebtoken";
+import mongoose from "mongoose";
 import handleResponse from "../utils/helper.js";
 import { sendSmsIndiaHubOtp } from "../services/smsIndiaHubService.js";
 import { generateOTP, useRealSMS } from "../utils/otp.js";
@@ -21,11 +22,23 @@ export const signupDelivery = async (req, res) => {
             name, phone, vehicleType,
             email, address, vehicleNumber,
             drivingLicenseNumber,
-            accountHolder, accountNumber, ifsc
+            accountHolder, accountNumber, ifsc,
+            sellerCode
         } = req.body;
 
         if (!name || !phone) {
             return handleResponse(res, 400, "Name and phone are required");
+        }
+
+        let sellerId = null;
+        if (sellerCode && sellerCode.trim()) {
+            const seller = await mongoose.model("Seller").findOne({
+                sellerCode: sellerCode.trim().toUpperCase()
+            });
+            if (!seller) {
+                return handleResponse(res, 400, "Invalid Seller Code");
+            }
+            sellerId = seller._id;
         }
 
         let delivery = await Delivery.findOne({ phone });
@@ -82,6 +95,7 @@ export const signupDelivery = async (req, res) => {
             accountHolder,
             accountNumber,
             ifsc,
+            sellerId,
             profileImage: profileImageUrl,
             documents: {
                 aadhar: aadharUrl,
@@ -166,8 +180,13 @@ export const verifyDeliveryOTP = async (req, res) => {
             return handleResponse(res, 400, "Invalid or expired OTP");
         }
 
-        delivery.isVerified = true;
-        delivery.isOnline = true; // Auto-activate delivery boy on login
+        // If rider registered under a seller (via invite code), keep isVerified=false
+        // so the seller can review and approve them from their dashboard.
+        // Standalone riders (no sellerId) are auto-verified immediately.
+        if (!delivery.sellerId) {
+            delivery.isVerified = true;
+            delivery.isOnline = true;
+        }
         delivery.otp = undefined;
         delivery.otpExpiry = undefined;
         delivery.lastLogin = new Date();
@@ -205,19 +224,36 @@ export const getDeliveryProfile = async (req, res) => {
 ================================ */
 export const updateDeliveryProfile = async (req, res) => {
     try {
-        const { name, vehicleType, vehicleNumber, drivingLicenseNumber, currentArea, isOnline } = req.body;
+        const {
+            name,
+            vehicleType,
+            vehicleNumber,
+            drivingLicenseNumber,
+            currentArea,
+            isOnline,
+            email,
+            address,
+            accountHolder,
+            accountNumber,
+            ifsc
+        } = req.body;
 
         const delivery = await Delivery.findById(req.user.id);
         if (!delivery) {
             return handleResponse(res, 404, "Delivery partner not found");
         }
 
-        if (name) delivery.name = name;
-        if (vehicleType) delivery.vehicleType = vehicleType;
-        if (vehicleNumber) delivery.vehicleNumber = vehicleNumber;
-        if (drivingLicenseNumber) delivery.drivingLicenseNumber = drivingLicenseNumber;
-        if (currentArea) delivery.currentArea = currentArea;
+        if (name !== undefined) delivery.name = name;
+        if (vehicleType !== undefined) delivery.vehicleType = vehicleType;
+        if (vehicleNumber !== undefined) delivery.vehicleNumber = vehicleNumber;
+        if (drivingLicenseNumber !== undefined) delivery.drivingLicenseNumber = drivingLicenseNumber;
+        if (currentArea !== undefined) delivery.currentArea = currentArea;
         if (typeof isOnline !== 'undefined') delivery.isOnline = isOnline;
+        if (email !== undefined) delivery.email = email;
+        if (address !== undefined) delivery.address = address;
+        if (accountHolder !== undefined) delivery.accountHolder = accountHolder;
+        if (accountNumber !== undefined) delivery.accountNumber = accountNumber;
+        if (ifsc !== undefined) delivery.ifsc = ifsc;
 
         await delivery.save();
 

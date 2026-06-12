@@ -33,6 +33,15 @@ const Profile = React.lazy(() => import("../pages/Profile"));
 const Withdrawals = React.lazy(() => import("../pages/Withdrawals"));
 const CustomOrders = React.lazy(() => import("../pages/CustomOrders"));
 
+const ActiveDeliveryBoys = React.lazy(
+  () => import("../../admin/pages/ActiveDeliveryBoys"),
+);
+const PendingDeliveryBoys = React.lazy(
+  () => import("../../admin/pages/PendingDeliveryBoys"),
+);
+const DeliveryFunds = React.lazy(() => import("../../admin/pages/DeliveryFunds"));
+const FleetTracking = React.lazy(() => import("../../admin/pages/FleetTracking"));
+
 const navItems = [
   { label: "Dashboard", path: "/seller", icon: HiOutlineSquares2X2, end: true },
   { label: "Products", path: "/seller/products", icon: HiOutlineCube },
@@ -41,6 +50,16 @@ const navItems = [
   { label: "Photo Orders", path: "/seller/photo-orders", icon: HiOutlinePhoto },
   { label: "Returns", path: "/seller/returns", icon: HiOutlineArchiveBox },
   { label: "Track Orders", path: "/seller/tracking", icon: HiOutlineMapPin },
+  {
+    label: "Delivery Drivers",
+    icon: HiOutlineTruck,
+    children: [
+      { label: "Active Drivers", path: "/seller/delivery-boys/active" },
+      { label: "Waiting for Review", path: "/seller/delivery-boys/pending" },
+      { label: "Track Drivers", path: "/seller/fleet-tracking" },
+      { label: "Send Money", path: "/seller/delivery-funds" },
+    ],
+  },
   {
     label: "Sales Reports",
     path: "/seller/analytics",
@@ -130,6 +149,10 @@ const SellerRoutes = () => {
         <Route path="/photo-orders" element={<CustomOrders />} />
         <Route path="/returns" element={<Returns />} />
         <Route path="/tracking" element={<DeliveryTracking />} />
+        <Route path="/delivery-boys/active" element={<ActiveDeliveryBoys />} />
+        <Route path="/delivery-boys/pending" element={<PendingDeliveryBoys />} />
+        <Route path="/fleet-tracking" element={<FleetTracking />} />
+        <Route path="/delivery-funds" element={<DeliveryFunds />} />
         <Route path="/analytics" element={<Analytics />} />
         <Route path="/transactions" element={<Transactions />} />
         <Route path="/earnings" element={<Earnings />} />

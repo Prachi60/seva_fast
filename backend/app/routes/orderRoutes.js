@@ -46,8 +46,12 @@ import {
   allowRoles,
   requireApprovedSeller,
 } from "../middleware/authMiddleware.js";
+import { handleShiprocketWebhook } from "../controller/shippingWebhookController.js";
 
 const router = express.Router();
+
+// Shiprocket Webhook (Public)
+router.post("/shipping/shiprocket/webhook", handleShiprocketWebhook);
 
 // Finance-aware checkout/order flow
 router.post(

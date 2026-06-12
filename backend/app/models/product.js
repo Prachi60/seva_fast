@@ -73,7 +73,7 @@ const productSchema = new mongoose.Schema(
         subcategoryId: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "Category",
-            required: true,
+            required: false,
         },
         sellerId: {
             type: mongoose.Schema.Types.ObjectId,
@@ -122,6 +122,11 @@ const productSchema = new mongoose.Schema(
                 sku: String,
             }
         ],
+        deliveryType: {
+            type: String,
+            enum: ["instant", "scheduled"],
+            default: "instant",
+        },
         isFeatured: {
             type: Boolean,
             default: false,

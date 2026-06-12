@@ -842,6 +842,27 @@ const Orders = () => {
                                                         <p className="text-xs font-semibold text-slate-600 mt-0.5">{selectedOrder.customer.phone}</p>
                                                     </div>
                                                 </div>
+                                                {selectedOrder.deliveryType === "scheduled" && (
+                                                    <div>
+                                                        <h4 className="text-xs font-black text-slate-600 uppercase tracking-widest mb-2 flex items-center gap-2">
+                                                            <HiOutlineTruck className="h-3 w-3 text-indigo-500" /> Shipment Details
+                                                        </h4>
+                                                        <div className="bg-indigo-50/50 p-3 rounded-2xl border border-indigo-100 shadow-sm space-y-2">
+                                                            <div className="flex justify-between items-center">
+                                                                <span className="text-[10px] bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">Shiprocket Fulfillment</span>
+                                                            </div>
+                                                            {selectedOrder.shipmentDetails?.awbCode ? (
+                                                                <div className="text-xs font-semibold text-slate-700 mt-2 space-y-1">
+                                                                    <p><span className="text-slate-500 font-bold">Courier:</span> {selectedOrder.shipmentDetails.courierName || "Standard"}</p>
+                                                                    <p><span className="text-slate-500 font-bold">AWB Code:</span> {selectedOrder.shipmentDetails.awbCode}</p>
+                                                                    <p><span className="text-slate-500 font-bold">Status:</span> <span className="uppercase text-indigo-600 font-black">{selectedOrder.shipmentDetails.status || "Created"}</span></p>
+                                                                </div>
+                                                            ) : (
+                                                                <p className="text-[10px] text-slate-500 font-medium italic mt-2">Awaiting shipment details (creates on status packed)</p>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                )}
                                             </div>
                                             <div className="space-y-3 sm:space-y-4">
                                                 <div className="bg-primary/5 p-3 sm:p-4 rounded-3xl border border-primary/10">

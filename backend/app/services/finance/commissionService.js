@@ -185,3 +185,59 @@ export const processOrderLevelCommissions = async (order) => {
         console.error("Error processing level commissions:", err);
     }
 };
+
+export const checkAndRewardMonthlyReferralTarget = async (referrerId) => {
+    try {
+        if (!referrerId) return;
+        const referrer = await User.findById(referrerId).populate("currentPlan");
+        if (!referrer || !referrer.currentPlan) return;
+
+        const features = referrer.currentPlan.features || [];
+        const targetFeature = features.find(f => f.key === "MONTHLY_REFERRAL_TARGET");
+        const rewardFeature = features.find(f => f.key === "MONTHLY_TARGET_REWARD");
+
+        if (!targetFeature || !rewardFeature) return;
+
+        const targetCount = Number(targetFeature.value) || 0;
+        const rewardAmount = Number(rewardFeature.value) || 0;
+
+        if (targetCount <= 0 || rewardAmount <= 0) return;
+
+        const now = new Date();
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+
+        // Count verified referrals for the current month
+        const count = await User.countDocuments({
+            referredBy: referrerId,
+            isVerified: true,
+            createdAt: { $gte: startOfMonth, $lte: endOfMonth }
+        });
+
+        if (count >= targetCount) {
+            const reference = `MONTHLY-REF-TARGET-${referrerId}-${now.getMonth() + 1}-${now.getFullYear()}`;
+            const existingTx = await Transaction.findOne({ reference });
+            if (!existingTx) {
+                referrer.walletBalance = (referrer.walletBalance || 0) + rewardAmount;
+                await referrer.save();
+
+                await Transaction.create({
+                    user: referrer._id,
+                    userModel: "User",
+                    type: "Incentive",
+                    amount: rewardAmount,
+                    status: "Settled",
+                    reference,
+                    meta: {
+                        description: `Monthly Referral Target achieved (${targetCount} referrals for ${now.toLocaleString('default', { month: 'long' })})`,
+                        month: now.getMonth() + 1,
+                        year: now.getFullYear()
+                    }
+                });
+                console.log(`[CommissionService] Credited monthly referral target reward of ₹${rewardAmount} to user ${referrerId}`);
+            }
+        }
+    } catch (error) {
+        console.error("Error rewarding monthly referral target:", error);
+    }
+};

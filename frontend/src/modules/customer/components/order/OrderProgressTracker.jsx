@@ -158,7 +158,7 @@ const OrderProgressTracker = ({
       </motion.div>
 
       {/* ETA Display */}
-      {status !== "delivered" && (
+      {status !== "delivered" && order?.deliveryType !== "scheduled" && (
         <div className="mt-6 pt-5 border-t border-slate-100">
           <div className="flex items-center justify-between bg-amber-50 rounded-2xl p-4 gap-4">
             <div className="flex items-center gap-3">

@@ -304,6 +304,15 @@ const orderSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Delivery",
     },
+    deliveryType: {
+      type: String,
+      enum: ["instant", "scheduled"],
+      default: "instant",
+    },
+    shipmentDetails: {
+      type: Object,
+      default: null,
+    },
     cancelledBy: {
       type: String,
       enum: ["customer", "seller", "admin", "system"],

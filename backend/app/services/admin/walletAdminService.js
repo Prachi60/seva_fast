@@ -1,5 +1,6 @@
 import Transaction from "../../models/transaction.js";
 import Notification from "../../models/notification.js";
+import Delivery from "../../models/delivery.js";
 import { getAdminFinanceSummary } from "../finance/walletService.js";
 import { getLedgerEntries } from "../finance/ledgerService.js";
 
@@ -44,8 +45,13 @@ export async function getAdminWalletOverview({ page, limit }) {
   };
 }
 
-export async function getDeliveryTransactionsData({ page, limit, skip }) {
+export async function getDeliveryTransactionsData({ page, limit, skip, sellerId }) {
   const query = { userModel: "Delivery" };
+  if (sellerId) {
+    const deliveryBoys = await Delivery.find({ sellerId }).select("_id");
+    const deliveryBoyIds = deliveryBoys.map(d => d._id);
+    query.user = { $in: deliveryBoyIds };
+  }
   const transactions = await Transaction.find(query)
     .populate("user", "name phone documents")
     .sort({ createdAt: -1 })

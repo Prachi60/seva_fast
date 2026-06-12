@@ -201,6 +201,9 @@ const ProductManagement = () => {
     status: "active",
     tags: "",
     weight: "",
+    weightVal: "",
+    weightUnit: "kg",
+    deliveryType: "instant",
     brand: "",
     mainImage: null,
     galleryImages: [],
@@ -309,9 +312,17 @@ const ProductManagement = () => {
 
   const handleSave = async () => {
     try {
-      if (!formData.name || !formData.price || !formData.stock || !formData.header || !formData.category || !formData.subcategory) {
-        toast.error("Please fill all required fields, including categories");
+      if (!formData.name || !formData.price || !formData.stock || !formData.header || !formData.category) {
+        toast.error("Please fill all required fields, including Main Group and Specific Category");
         return;
+      }
+
+      if (formData.deliveryType === "scheduled") {
+        const parsedWeight = parseFloat(formData.weightVal);
+        if (!formData.weightVal || Number.isNaN(parsedWeight) || parsedWeight <= 0) {
+          toast.error("Please provide a valid product weight for scheduled nationwide delivery.");
+          return;
+        }
       }
 
       const data = new FormData();
@@ -328,6 +339,7 @@ const ProductManagement = () => {
       data.append("status", formData.status);
       data.append("brand", formData.brand);
       data.append("weight", formData.weight);
+      data.append("deliveryType", formData.deliveryType || "instant");
       data.append("tags", formData.tags);
       data.append("variants", JSON.stringify(formData.variants));
 
@@ -422,6 +434,9 @@ const ProductManagement = () => {
         status: item.status || "active",
         tags: Array.isArray(item.tags) ? item.tags.join(", ") : item.tags || "",
         weight: item.weight || "",
+        weightVal: Number.isFinite(parseFloat(String(item.weight || "").replace(/[^\d.]/g, ""))) ? String(parseFloat(String(item.weight || "").replace(/[^\d.]/g, ""))) : "",
+        weightUnit: (String(item.weight || "").toLowerCase().includes("gm") || String(item.weight || "").toLowerCase().includes("gram")) ? "gm" : "kg",
+        deliveryType: item.deliveryType || "instant",
         brand: item.brand || "",
         mainImage: item.mainImage || null,
         galleryImages: item.galleryImages || [],
@@ -452,6 +467,9 @@ const ProductManagement = () => {
         status: "active",
         tags: "",
         weight: "",
+        weightVal: "",
+        weightUnit: "kg",
+        deliveryType: "instant",
         brand: "",
         mainImage: null,
         galleryImages: [],
@@ -1076,6 +1094,64 @@ const ProductManagement = () => {
                           />
                         </div>
                       </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-1.5 flex flex-col">
+                          <label className="text-[10px] sm:text-xs font-bold text-slate-600 uppercase tracking-widest ml-1">
+                            Delivery Type <span className="text-rose-500">*</span>
+                          </label>
+                          <select
+                            value={formData.deliveryType || "instant"}
+                            onChange={(e) =>
+                              setFormData({ ...formData, deliveryType: e.target.value })
+                            }
+                            className="w-full px-4 py-2.5 bg-slate-100 border-none rounded-xl text-sm font-bold outline-none cursor-pointer focus:ring-2 focus:ring-primary/5 transition-all"
+                          >
+                            <option value="instant">Instant (Local Rider)</option>
+                            <option value="scheduled">Scheduled (Nationwide Shipping)</option>
+                          </select>
+                        </div>
+                        <div className="space-y-1.5 flex flex-col">
+                          <label className="text-[10px] sm:text-xs font-bold text-slate-600 uppercase tracking-widest ml-1">
+                            Weight {formData.deliveryType === "scheduled" && <span className="text-rose-500">*</span>}
+                          </label>
+                          <div className="flex gap-2">
+                            <input
+                              value={formData.weightVal || ""}
+                              type="number"
+                              step="any"
+                              min="0"
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                const unit = formData.weightUnit || "kg";
+                                setFormData({
+                                  ...formData,
+                                  weightVal: val,
+                                  weight: val ? `${val} ${unit}` : "",
+                                });
+                              }}
+                              className="flex-1 px-4 py-2.5 bg-slate-100 border-none rounded-xl text-sm font-semibold outline-none ring-primary/5 focus:ring-2 transition-all"
+                              placeholder="e.g. 0.5 or 500"
+                            />
+                            <select
+                              value={formData.weightUnit || "kg"}
+                              onChange={(e) => {
+                                const unit = e.target.value;
+                                const val = formData.weightVal || "";
+                                setFormData({
+                                  ...formData,
+                                  weightUnit: unit,
+                                  weight: val ? `${val} ${unit}` : "",
+                                });
+                              }}
+                              className="w-24 px-2 py-2.5 bg-slate-100 border-none rounded-xl text-sm font-bold outline-none cursor-pointer focus:ring-2 focus:ring-primary/5 transition-all"
+                            >
+                              <option value="kg">kg</option>
+                              <option value="gm">gm</option>
+                            </select>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   )}
                   {/* Additional tabs populated as needed */}
@@ -1124,7 +1200,7 @@ const ProductManagement = () => {
                       </div>
                       <div className="space-y-1.5 flex flex-col">
                         <label className="text-[10px] sm:text-xs font-bold text-slate-600 uppercase tracking-widest ml-1">
-                          Sub-Category <span className="text-rose-500">*</span>
+                          Sub-Category <span className="text-slate-400 font-medium lowercase italic">(Optional)</span>
                         </label>
                         <select
                           value={formData.subcategory}

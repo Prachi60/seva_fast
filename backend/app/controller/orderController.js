@@ -43,6 +43,7 @@ import {
 import { createFinanceOrderSchema } from "../validation/financeValidation.js";
 import { placeOrderAtomic } from "../services/orderPlacementService.js";
 import { emitNotificationEvent } from "../modules/notifications/notification.emitter.js";
+import { createShiprocketOrder, cancelShiprocketOrder } from "../services/shiprocketService.js";
 import { NOTIFICATION_EVENTS } from "../modules/notifications/notification.constants.js";
 import {
   emitDeliveryBroadcastForSeller,
@@ -880,13 +881,103 @@ export const updateOrderStatus = async (req, res) => {
 
     const oldStatus = order.status;
     if (status) {
+      if (status === "packed" && order.deliveryType === "scheduled") {
+        try {
+          const populatedOrder = await Order.findById(order._id)
+            .populate("customer", "name phone email")
+            .populate("seller", "shopName address name location");
+          
+          const shipment = await createShiprocketOrder(populatedOrder);
+          if (shipment && shipment.success) {
+            order.shipmentDetails = {
+              shipmentId: shipment.shipment_id,
+              awbCode: shipment.awb_code,
+              courierName: shipment.courier_name,
+              status: shipment.status,
+              createdAt: new Date(),
+            };
+          }
+        } catch (shiprocketError) {
+          console.error("[SHIPROCKET_ERROR] Failed to create shipment:", shiprocketError);
+          return handleResponse(res, 400, `Shiprocket Shipment Creation Failed: ${shiprocketError.message}`);
+        }
+      }
       order.status = status;
       order.orderStatus = status;
       if (order.workflowVersion >= 2) {
         order.workflowStatus = workflowFromLegacyStatus(status);
       }
     }
-    if (deliveryBoyId) order.deliveryBoy = deliveryBoyId;
+    if (deliveryBoyId && String(order.deliveryBoy || "") !== String(deliveryBoyId)) {
+      if (typeof Delivery.findById === "function") {
+        const rider = await Delivery.findById(deliveryBoyId);
+        if (rider && !rider.isOnline) {
+          return handleResponse(res, 400, "Delivery partner is offline. Cannot assign order.");
+        }
+      }
+      if (typeof Order.countDocuments === "function") {
+        const activeOrdersCount = await Order.countDocuments({
+          deliveryBoy: deliveryBoyId,
+          status: { $nin: ["delivered", "cancelled"] },
+        });
+        if (activeOrdersCount >= 3) {
+          return handleResponse(res, 400, "Delivery partner is at maximum capacity.");
+        }
+      }
+    }
+
+    if (deliveryBoyId) {
+      order.deliveryBoy = deliveryBoyId;
+      order.deliverySearchExpiresAt = new Date(Date.now() + 60000);
+      
+      if (Array.isArray(order.skippedBy)) {
+        order.skippedBy = order.skippedBy.filter(
+          (id) => id.toString() !== deliveryBoyId.toString()
+        );
+      }
+      
+      await order.save();
+      
+      try {
+        await retractDeliveryBroadcastForOrder(canonicalOrderId, deliveryBoyId);
+      } catch (retractErr) {
+        console.warn("[updateOrderStatus] retract broadcast failed:", retractErr.message);
+      }
+      
+      // Emit FCM/Push notification event for assignment
+      emitNotificationEvent(NOTIFICATION_EVENTS.DELIVERY_ASSIGNED, {
+        orderId: canonicalOrderId,
+        deliveryId: deliveryBoyId,
+      });
+
+      // Emit real-time Socket event to delivery partner
+      try {
+        const orderRich = await Order.findById(order._id)
+          .populate("seller", "shopName address name location serviceRadius")
+          .lean();
+        const seller = orderRich?.seller || {};
+        const pickup = seller.shopName || "Seller";
+        const drop = orderRich?.address?.address || "Customer address";
+        
+        emitToDelivery(deliveryBoyId, {
+          event: "order:assigned",
+          payload: {
+            orderId: canonicalOrderId,
+            workflowStatus: orderRich?.workflowStatus || orderRich?.status,
+            preview: {
+              pickup,
+              drop,
+              total: orderRich?.pricing?.total ?? 0,
+            },
+            deliverySearchExpiresAt: orderRich?.deliverySearchExpiresAt || new Date(Date.now() + 60000),
+            status: order.status,
+            message: `You have been assigned order #${canonicalOrderId}.`,
+          },
+        });
+      } catch (socketErr) {
+        console.warn("[updateOrderStatus] socket emit failed:", socketErr.message);
+      }
+    }
 
     // Legacy orders: keep rider UI step in sync with status (delivery app refresh-safe)
     if (
@@ -901,6 +992,13 @@ export const updateOrderStatus = async (req, res) => {
 
     // Handle Cancellation (Stock Reversal & Transaction Update)
     if (status === "cancelled" && oldStatus !== "cancelled") {
+      if (order.deliveryType === "scheduled" && order.shipmentDetails?.shipmentId) {
+        try {
+          await cancelShiprocketOrder(order.orderId);
+        } catch (cancelErr) {
+          console.warn("[SHIPROCKET_CANCEL_ERROR] Failed to cancel shipment:", cancelErr.message);
+        }
+      }
       // 1. Reverse Stock
       for (const item of order.items) {
         await Product.findByIdAndUpdate(item.product, {
@@ -929,6 +1027,12 @@ export const updateOrderStatus = async (req, res) => {
         userId: order.customer,
         sellerId: order.seller,
       });
+
+      try {
+        await retractDeliveryBroadcastForOrder(canonicalOrderId);
+      } catch (retractErr) {
+        console.warn("[updateOrderStatus] retract broadcast failed:", retractErr.message);
+      }
     }
 
     // Handle Confirmation/Delivery (Settle Transaction for Demo)
@@ -1883,7 +1987,7 @@ export const acceptOrder = async (req, res) => {
       }
     }
 
-    if (order.deliveryBoy) {
+    if (order.deliveryBoy && order.deliveryBoy.toString() !== userId.toString()) {
       return handleResponse(
         res,
         400,

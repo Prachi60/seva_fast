@@ -224,6 +224,34 @@ export async function sellerAcceptAtomic(sellerId, orderId) {
   const sellerMs = DEFAULT_SELLER_TIMEOUT_MS();
   const deliveryMs = DEFAULT_DELIVERY_TIMEOUT_MS();
 
+  // Find order first to check delivery type
+  const orderDoc = await Order.findOne({ orderId, seller: sellerId });
+  if (!orderDoc) {
+    const err = new Error("Order not available for acceptance or expired");
+    err.statusCode = 409;
+    throw err;
+  }
+
+  const isScheduled = orderDoc.deliveryType === "scheduled";
+  const targetWorkflowStatus = isScheduled 
+    ? WORKFLOW_STATUS.SELLER_ACCEPTED 
+    : WORKFLOW_STATUS.DELIVERY_SEARCH;
+
+  const updateFields = {
+    workflowStatus: targetWorkflowStatus,
+    status: legacyStatusFromWorkflow(targetWorkflowStatus),
+    sellerAcceptedAt: now,
+  };
+
+  if (!isScheduled) {
+    updateFields.deliverySearchExpiresAt = new Date(now.getTime() + deliveryMs);
+    updateFields.deliverySearchMeta = {
+      radiusMeters: INITIAL_DELIVERY_RADIUS_M(),
+      attempt: 1,
+      lastBroadcastAt: now,
+    };
+  }
+
   const updated = await Order.findOneAndUpdate(
     {
       orderId,
@@ -237,17 +265,7 @@ export async function sellerAcceptAtomic(sellerId, orderId) {
       ],
     },
     {
-      $set: {
-        workflowStatus: WORKFLOW_STATUS.DELIVERY_SEARCH,
-        status: legacyStatusFromWorkflow(WORKFLOW_STATUS.DELIVERY_SEARCH),
-        sellerAcceptedAt: now,
-        deliverySearchExpiresAt: new Date(now.getTime() + deliveryMs),
-        deliverySearchMeta: {
-          radiusMeters: INITIAL_DELIVERY_RADIUS_M(),
-          attempt: 1,
-          lastBroadcastAt: now,
-        },
-      },
+      $set: updateFields,
       // CRITICAL FIX: Remove expiresAt to prevent TTL index from auto-deleting the order
       $unset: { expiresAt: 1 },
     },
@@ -263,29 +281,32 @@ export async function sellerAcceptAtomic(sellerId, orderId) {
   }
 
   await removeSellerTimeoutJob(orderId);
-  await scheduleDeliveryTimeoutJob(orderId, 1);
 
-  await DeliveryAssignment.create({
-    orderMongoId: updated._id,
-    orderId: updated.orderId,
-    status: "broadcasting",
-    radiusMeters: INITIAL_DELIVERY_RADIUS_M(),
-    attempt: 1,
-    expiresAt: updated.deliverySearchExpiresAt,
-  });
+  if (!isScheduled) {
+    await scheduleDeliveryTimeoutJob(orderId, 1);
+
+    await DeliveryAssignment.create({
+      orderMongoId: updated._id,
+      orderId: updated.orderId,
+      status: "broadcasting",
+      radiusMeters: INITIAL_DELIVERY_RADIUS_M(),
+      attempt: 1,
+      expiresAt: updated.deliverySearchExpiresAt,
+    });
+  }
 
   emitOrderStatusUpdate(
     updated.orderId,
     {
-      workflowStatus: WORKFLOW_STATUS.DELIVERY_SEARCH,
+      workflowStatus: updated.workflowStatus,
       deliverySearchExpiresAt: updated.deliverySearchExpiresAt,
     },
     updated.customer?._id || updated.customer,
-  );
-  await emitDeliveryBroadcastForSeller(
     updated.seller,
-    deliveryBroadcastPayloadFromOrder(updated),
+    updated._id,
   );
+  // Do not automatically broadcast to nearby riders upon seller acceptance.
+  // Delivery boy will only be notified when manually assigned by the seller.
 
   emitNotificationEvent(NOTIFICATION_EVENTS.ORDER_CONFIRMED, {
     orderId: updated.orderId,
@@ -333,7 +354,7 @@ export async function sellerRejectAtomic(sellerId, orderId) {
 
   emitOrderStatusUpdate(order.orderId, {
     workflowStatus: WORKFLOW_STATUS.CANCELLED,
-  }, order.customer);
+  }, order.customer, order.seller, order._id);
   emitNotificationEvent(NOTIFICATION_EVENTS.ORDER_CANCELLED, {
     orderId: order.orderId,
     customerId: order.customer,
@@ -362,6 +383,7 @@ function toDeliveryObjectId(deliveryId) {
 export async function deliveryAcceptAtomic(deliveryId, orderId, idempotencyKey) {
   orderId = await requireCanonicalOrderId(orderId);
   const deliveryOid = toDeliveryObjectId(deliveryId);
+  const now = new Date();
   if (!deliveryOid) {
     const err = new Error("Invalid delivery account");
     err.statusCode = 400;
@@ -384,13 +406,15 @@ export async function deliveryAcceptAtomic(deliveryId, orderId, idempotencyKey) 
     }
   }
 
-  const now = new Date();
   const updated = await Order.findOneAndUpdate(
     {
       orderId,
       workflowVersion: { $gte: 2 },
       workflowStatus: WORKFLOW_STATUS.DELIVERY_SEARCH,
-      deliveryBoy: null,
+      $or: [
+        { deliveryBoy: null },
+        { deliveryBoy: deliveryOid }
+      ],
       deliverySearchExpiresAt: { $gt: now },
       skippedBy: { $nin: [deliveryOid] },
     },
@@ -418,7 +442,7 @@ export async function deliveryAcceptAtomic(deliveryId, orderId, idempotencyKey) 
     if (o.deliverySearchExpiresAt && new Date(o.deliverySearchExpiresAt) <= now) {
       msg =
         "Accept window has expired. Wait for the next delivery request.";
-    } else if (o.deliveryBoy) {
+    } else if (o.deliveryBoy && o.deliveryBoy.toString() !== deliveryOid.toString()) {
       msg = "Another rider already accepted this order.";
     } else if (
       (o.skippedBy || []).some((id) => id.toString() === deliveryOid.toString())
@@ -474,9 +498,12 @@ export async function deliveryAcceptAtomic(deliveryId, orderId, idempotencyKey) 
     updated.orderId,
     {
       workflowStatus: WORKFLOW_STATUS.DELIVERY_ASSIGNED,
+      status: legacyStatusFromWorkflow(WORKFLOW_STATUS.DELIVERY_ASSIGNED),
       deliveryBoyId: deliveryOid.toString(),
     },
     updated.customer,
+    updated.seller,
+    updated._id,
   );
 
   return { order: updated, duplicate: false };
@@ -512,7 +539,7 @@ export async function processSellerTimeoutJob({ orderId }) {
 
   await compensateOrderCancellation(updated, orderId);
 
-  emitOrderStatusUpdate(orderId, { workflowStatus: WORKFLOW_STATUS.CANCELLED }, updated.customer);
+  emitOrderStatusUpdate(orderId, { workflowStatus: WORKFLOW_STATUS.CANCELLED }, updated.customer, updated.seller, updated._id);
   emitNotificationEvent(NOTIFICATION_EVENTS.ORDER_CANCELLED, {
     orderId: updated.orderId,
     customerId: updated.customer,
@@ -568,12 +595,7 @@ export async function processDeliveryTimeoutJob({ orderId, attempt }) {
       .populate("seller", "shopName address name location serviceRadius")
       .lean();
     if (orderRich) {
-      await emitDeliveryBroadcastForSeller(
-        orderRich.seller,
-        deliveryBroadcastPayloadFromOrder(orderRich, {
-          retryAttempt: currentAttempt + 1,
-        }),
-      );
+      // Automatic retry broadcast disabled. Only assigned rider gets notified.
     }
     return;
   }
@@ -598,7 +620,12 @@ export async function processDeliveryTimeoutJob({ orderId, attempt }) {
   if (!updated) return;
 
   await compensateOrderCancellation(updated, orderId);
-  emitOrderStatusUpdate(orderId, { workflowStatus: WORKFLOW_STATUS.CANCELLED }, updated.customer);
+  try {
+    await retractDeliveryBroadcastForOrder(orderId);
+  } catch (retractErr) {
+    console.warn("[deliveryTimeoutJob] retract broadcast failed:", retractErr.message);
+  }
+  emitOrderStatusUpdate(orderId, { workflowStatus: WORKFLOW_STATUS.CANCELLED }, updated.customer, updated.seller, updated._id);
   emitNotificationEvent(NOTIFICATION_EVENTS.ORDER_CANCELLED, {
     orderId: updated.orderId,
     customerId: updated.customer,
@@ -652,7 +679,7 @@ export async function customerCancelV2(customerId, orderId, reason) {
 
   await removeSellerTimeoutJob(orderId);
   await compensateOrderCancellation(updated, orderId);
-  emitOrderStatusUpdate(orderId, { workflowStatus: WORKFLOW_STATUS.CANCELLED }, updated.customer);
+  emitOrderStatusUpdate(orderId, { workflowStatus: WORKFLOW_STATUS.CANCELLED }, updated.customer, updated.seller, updated._id);
   emitNotificationEvent(NOTIFICATION_EVENTS.ORDER_CANCELLED, {
     orderId: updated.orderId,
     customerId: updated.customer,
@@ -735,8 +762,13 @@ export async function markArrivedAtStoreAtomic(deliveryId, orderId, lat, lng) {
 
   emitOrderStatusUpdate(
     orderId,
-    { workflowStatus: WORKFLOW_STATUS.PICKUP_READY },
+    {
+      workflowStatus: WORKFLOW_STATUS.PICKUP_READY,
+      status: legacyStatusFromWorkflow(WORKFLOW_STATUS.PICKUP_READY),
+    },
     updated.customer,
+    updated.seller,
+    updated._id,
   );
   emitNotificationEvent(NOTIFICATION_EVENTS.ORDER_PACKED, {
     orderId: updated.orderId,
@@ -828,8 +860,11 @@ export async function confirmPickupAtomic(deliveryId, orderId, lat, lng) {
     orderId,
     {
       workflowStatus: WORKFLOW_STATUS.OUT_FOR_DELIVERY,
+      status: legacyStatusFromWorkflow(WORKFLOW_STATUS.OUT_FOR_DELIVERY),
     },
     updated.customer,
+    updated.seller,
+    updated._id,
   );
   emitNotificationEvent(NOTIFICATION_EVENTS.OUT_FOR_DELIVERY, {
     orderId: updated.orderId,
@@ -979,7 +1014,7 @@ export async function requestHandoffOtpAtomic(deliveryId, orderId, lat, lng) {
       deliveryPersonNearby: true 
     },
   });
-  emitOrderStatusUpdate(orderId, { otpSent: true }, order.customer);
+  emitOrderStatusUpdate(orderId, { otpSent: true }, order.customer, order.seller, order._id);
 
   return { expiresAt, message: "OTP sent to customer" };
 }
@@ -1069,7 +1104,16 @@ export async function verifyHandoffOtpAndDeliver(deliveryId, orderId, code) {
 
   await applyDeliveredSettlement(updated, orderId);
 
-  emitOrderStatusUpdate(orderId, { workflowStatus: WORKFLOW_STATUS.DELIVERED }, updated.customer);
+  emitOrderStatusUpdate(
+    orderId,
+    {
+      workflowStatus: WORKFLOW_STATUS.DELIVERED,
+      status: legacyStatusFromWorkflow(WORKFLOW_STATUS.DELIVERED),
+    },
+    updated.customer,
+    updated.seller,
+    updated._id,
+  );
   emitNotificationEvent(NOTIFICATION_EVENTS.ORDER_DELIVERED, {
     orderId: updated.orderId,
     customerId: updated.customer,

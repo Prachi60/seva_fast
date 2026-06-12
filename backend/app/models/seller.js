@@ -130,6 +130,13 @@ const sellerSchema = new mongoose.Schema(
         default: [0, 0],
       },
     },
+    sellerCode: {
+      type: String,
+      unique: true,
+      sparse: true,
+      trim: true,
+      uppercase: true,
+    },
     serviceRadius: {
       type: Number,
       default: 5, // Default 5km
@@ -142,8 +149,12 @@ const sellerSchema = new mongoose.Schema(
 sellerSchema.index({ location: "2dsphere" });
 sellerSchema.index({ isActive: 1, isVerified: 1 });
 
-// Hash password before saving
+// Generate sellerCode and Hash password before saving
 sellerSchema.pre("save", async function (next) {
+  if (!this.sellerCode) {
+    const randomCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+    this.sellerCode = `SV-${randomCode}`;
+  }
   if (!this.isModified("password")) return next();
   const salt = await bcrypt.genSalt(10);
   this.password = await bcrypt.hash(this.password, salt);

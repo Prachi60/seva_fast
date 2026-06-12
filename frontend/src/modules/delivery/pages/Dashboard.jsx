@@ -19,6 +19,11 @@ import Card from "@/shared/components/ui/Card";
 
 import { useAuth } from "@core/context/AuthContext";
 import { deliveryApi } from "../services/deliveryApi";
+import {
+  onDeliveryBroadcast,
+  onOrderAssigned,
+  onDeliveryBroadcastWithdrawn,
+} from "@/core/services/orderSocket";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -83,6 +88,29 @@ const Dashboard = () => {
     fetchStats();
     fetchNotifications();
     if (isOnline) fetchAvailableOrders();
+  }, [isOnline, activeTab]);
+
+  // Real-time dashboard updates via socket events
+  useEffect(() => {
+    if (!isOnline) return undefined;
+    const getToken = () => localStorage.getItem("auth_delivery");
+
+    const refreshDashboardData = () => {
+      console.log("[Dashboard] Real-time socket event received, refreshing stats & orders...");
+      fetchStats();
+      fetchNotifications();
+      fetchAvailableOrders();
+    };
+
+    const unsubBroadcast = onDeliveryBroadcast(getToken, refreshDashboardData);
+    const unsubAssigned = onOrderAssigned(getToken, refreshDashboardData);
+    const unsubWithdrawn = onDeliveryBroadcastWithdrawn(getToken, refreshDashboardData);
+
+    return () => {
+      unsubBroadcast();
+      unsubAssigned();
+      unsubWithdrawn();
+    };
   }, [isOnline, activeTab]);
 
   const handleOnlineToggle = async () => {

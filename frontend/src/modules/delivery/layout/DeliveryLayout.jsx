@@ -11,6 +11,7 @@ import {
   getOrderSocket,
   onDeliveryBroadcast,
   onDeliveryBroadcastWithdrawn,
+  onOrderAssigned,
 } from "@/core/services/orderSocket";
 import {
   loadHandledIncomingOrderIds,
@@ -135,10 +136,10 @@ const DeliveryLayout = () => {
     loadHandledIncomingOrderIds().forEach((id) => shownOrderIdsRef.current.add(id));
   }, []);
 
-  const applyFromBroadcastPayload = useCallback((payload) => {
+  const applyFromBroadcastPayload = useCallback((payload, isManualAssignment = false) => {
     if (!payload?.orderId) return false;
     if (activeOrderRef.current) return true;
-    if (shownOrderIdsRef.current.has(payload.orderId)) return true;
+    if (!isManualAssignment && shownOrderIdsRef.current.has(payload.orderId)) return true;
     const p = payload.preview;
     if (
       !p ||
@@ -408,9 +409,10 @@ const DeliveryLayout = () => {
     if (!user?.isOnline) return undefined;
     const getToken = () => localStorage.getItem("auth_delivery");
     getOrderSocket(getToken);
-    return onDeliveryBroadcast(getToken, (payload) => {
+
+    const handleIncoming = (payload, isManualAssignment = false) => {
       if (activeOrderRef.current || suppressIncomingModal) return;
-      const opened = applyFromBroadcastPayload(payload);
+      const opened = applyFromBroadcastPayload(payload, isManualAssignment);
       if (opened) return;
       fetchAvailableOrders()
         .then((res) => {
@@ -419,7 +421,15 @@ const DeliveryLayout = () => {
           applyAvailableOrdersList(list);
         })
         .catch(() => { });
-    });
+    };
+
+    const unsubBroadcast = onDeliveryBroadcast(getToken, (p) => handleIncoming(p, false));
+    const unsubAssigned = onOrderAssigned(getToken, (p) => handleIncoming(p, true));
+
+    return () => {
+      unsubBroadcast();
+      unsubAssigned();
+    };
   }, [
     user?.isOnline,
     applyAvailableOrdersList,

@@ -4,7 +4,7 @@ const planFeatureSchema = new mongoose.Schema({
     key: {
         type: String,
         required: true,
-        enum: ["FREE_DELIVERY", "FREE_HANDLING", "CASHBACK", "VENDOR_ONBOARDING", "REFERRAL_REWARD", "TURNOVER_COMMISSION", "ORDER_COMMISSION", "REFERRAL_LEVELS", "LEVEL_COMMISSION"],
+        enum: ["FREE_DELIVERY", "FREE_HANDLING", "CASHBACK", "VENDOR_ONBOARDING", "REFERRAL_REWARD", "TURNOVER_COMMISSION", "ORDER_COMMISSION", "REFERRAL_LEVELS", "LEVEL_COMMISSION", "MONTHLY_REFERRAL_TARGET", "MONTHLY_TARGET_REWARD"],
     },
     value: {
         type: mongoose.Schema.Types.Mixed,
@@ -32,6 +32,10 @@ const planSchema = new mongoose.Schema(
         price: {
             type: Number,
             required: true,
+            min: 0,
+        },
+        originalPrice: {
+            type: Number,
             min: 0,
         },
         description: {

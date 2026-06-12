@@ -46,7 +46,7 @@ function normalizeDeliveryId(deliveryId) {
  * and optionally to the customer’s personal room so the app updates even before
  * opening order details (e.g. checkout success overlay).
  */
-export function emitOrderStatusUpdate(orderId, payload, customerId) {
+export function emitOrderStatusUpdate(orderId, payload, customerId, sellerId, orderDbId) {
   const s = getIo();
   if (!s) return;
   const body = {
@@ -55,6 +55,12 @@ export function emitOrderStatusUpdate(orderId, payload, customerId) {
     at: new Date().toISOString(),
   };
   s.to(`order:${orderId}`).emit("order:status:update", body);
+  
+  const dbId = orderDbId || payload?._id || payload?.orderDbId;
+  if (dbId) {
+    s.to(`order:${dbId.toString()}`).emit("order:status:update", body);
+  }
+
   const cid =
     customerId != null &&
     typeof customerId === "object" &&
@@ -63,6 +69,15 @@ export function emitOrderStatusUpdate(orderId, payload, customerId) {
       : customerId;
   if (cid) {
     s.to(`customer:${cid}`).emit("order:status:update", body);
+  }
+  const sid =
+    sellerId != null &&
+    typeof sellerId === "object" &&
+    typeof sellerId.toString === "function"
+      ? sellerId.toString()
+      : sellerId;
+  if (sid) {
+    s.to(`seller:${sid}`).emit("order:status:update", body);
   }
 }
 
@@ -75,8 +90,17 @@ export function emitToSeller(sellerId, { event, payload }) {
 export function emitToDelivery(deliveryId, { event, payload }) {
   const s = getIo();
   const id = normalizeDeliveryId(deliveryId);
-  if (!s || !id) return;
+  console.log(`[orderSocketEmitter] emitToDelivery called for deliveryId: ${deliveryId}, normalizedId: ${id}, event: ${event}`);
+  if (!s) {
+    console.warn(`[orderSocketEmitter] emitToDelivery - Socket.IO server not initialized`);
+    return;
+  }
+  if (!id) {
+    console.warn(`[orderSocketEmitter] emitToDelivery - Invalid delivery ID`);
+    return;
+  }
   s.to(`delivery:${id}`).emit(event, payload);
+  console.log(`[orderSocketEmitter] emitToDelivery - Successfully emitted event "${event}" to room "delivery:${id}" with payload:`, JSON.stringify(payload, null, 2));
 }
 
 /**

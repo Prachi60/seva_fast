@@ -203,9 +203,14 @@ async function resolveNearbySellerIds(deliveryPartner, userId) {
   };
 }
 
-function filterV2OrdersByRadius(v2Orders, deliveryCoords) {
+function filterV2OrdersByRadius(v2Orders, deliveryCoords, userId) {
   const [dlng, dlat] = deliveryCoords;
   return v2Orders.filter((order) => {
+    // If explicitly assigned to this rider, skip radius check
+    const orderRiderId = order.deliveryBoy?._id || order.deliveryBoy;
+    if (orderRiderId && userId && String(orderRiderId) === String(userId)) {
+      return true;
+    }
     const coords = order.seller?.location?.coordinates;
     if (!Array.isArray(coords) || coords.length < 2) return true;
 
@@ -280,8 +285,15 @@ export async function fetchAvailableOrdersForDelivery({
     const v2OrdersRaw = await Order.find({
       workflowVersion: { $gte: 2 },
       workflowStatus: WORKFLOW_STATUS.DELIVERY_SEARCH,
-      deliveryBoy: null,
-      seller: { $in: sellerIds },
+      $or: [
+        {
+          deliveryBoy: null,
+          seller: { $in: sellerIds },
+        },
+        {
+          deliveryBoy: userId,
+        },
+      ],
       skippedBy: { $nin: [userId] },
     })
       .sort({ createdAt: -1, _id: -1 })
@@ -293,19 +305,33 @@ export async function fetchAvailableOrdersForDelivery({
     v2Orders = filterV2OrdersByRadius(
       v2OrdersRaw,
       deliveryPartner.location.coordinates,
+      userId,
     );
   }
 
   let legacyOrders = [];
   if (showDeliveries) {
     legacyOrders = await Order.find({
-      $or: [
-        { workflowVersion: { $exists: false } },
-        { workflowVersion: { $lt: 2 } },
+      $and: [
+        {
+          $or: [
+            { workflowVersion: { $exists: false } },
+            { workflowVersion: { $lt: 2 } },
+          ],
+        },
+        {
+          $or: [
+            {
+              deliveryBoy: null,
+              seller: { $in: sellerIds },
+            },
+            {
+              deliveryBoy: userId,
+            },
+          ],
+        },
       ],
       status: { $in: ["confirmed", "packed"] },
-      deliveryBoy: null,
-      seller: { $in: sellerIds },
       skippedBy: { $nin: [userId] },
     })
       .sort({ createdAt: -1, _id: -1 })

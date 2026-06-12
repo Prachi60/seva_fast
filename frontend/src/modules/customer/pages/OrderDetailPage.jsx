@@ -386,6 +386,17 @@ const OrderDetailPage = () => {
   }, []);
 
   useEffect(() => {
+    if (showInvoice || showHelp || showReturnModal) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [showInvoice, showHelp, showReturnModal]);
+
+  useEffect(() => {
     if (!order) {
       setReturnCountdown(null);
       return;
@@ -812,8 +823,8 @@ const OrderDetailPage = () => {
           </motion.div>
         )}
 
-        {/* Enhanced Map with Cleaner Design - Hide when delivered or cancelled */}
-        {!isAwaitingOnlinePayment && status !== "delivered" && status !== "cancelled" && (
+        {/* Enhanced Map with Cleaner Design - Hide when delivered or cancelled, or if it is a scheduled delivery */}
+        {!isAwaitingOnlinePayment && status !== "delivered" && status !== "cancelled" && order.deliveryType !== "scheduled" && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -834,6 +845,76 @@ const OrderDetailPage = () => {
               routePolyline={activeRoutePolyline}
               onOpenInMaps={handleOpenInMaps}
             />
+          </motion.div>
+        )}
+
+        {/* Shiprocket Delivery Details Card */}
+        {order.deliveryType === "scheduled" && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-white rounded-3xl p-5 shadow-sm border border-slate-100"
+          >
+            <div className="flex items-start gap-4">
+              <div className="h-12 w-12 rounded-2xl bg-indigo-50 flex items-center justify-center flex-shrink-0">
+                <Truck size={24} className="text-indigo-600" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1">
+                  <p className="text-xs font-bold text-indigo-600 uppercase tracking-wider">Nationwide Shipping</p>
+                  <span className="bg-indigo-50 text-indigo-700 text-[10px] px-2 py-0.5 rounded-full font-bold">
+                    Shiprocket
+                  </span>
+                </div>
+                <h4 className="font-bold text-slate-900 text-base mb-2">Fulfillment Tracking</h4>
+
+                {order.shipmentDetails?.awbCode ? (
+                  <div className="space-y-3">
+                    <div className="bg-slate-50 rounded-2xl p-3.5 space-y-2">
+                      <div className="flex items-center justify-between text-xs text-slate-500">
+                        <span>Courier Partner</span>
+                        <span className="font-bold text-slate-800">{order.shipmentDetails.courierName || "Standard Courier"}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-xs text-slate-500">
+                        <span>AWB Tracking Number</span>
+                        <div className="flex items-center gap-1.5 font-mono font-bold text-slate-800">
+                          <span>{order.shipmentDetails.awbCode}</span>
+                          <button
+                            onClick={() => {
+                              navigator.clipboard.writeText(order.shipmentDetails.awbCode);
+                              toast.success("AWB Tracking Number copied!");
+                            }}
+                            className="text-[10px] bg-slate-200/60 hover:bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded transition-all active:scale-95"
+                          >
+                            Copy
+                          </button>
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between text-xs text-slate-500">
+                        <span>Shipping Status</span>
+                        <span className="inline-flex items-center rounded-full bg-indigo-50 px-2 py-0.5 font-bold text-indigo-700 uppercase text-[10px]">
+                          {order.shipmentDetails.status || "Shipped"}
+                        </span>
+                      </div>
+                    </div>
+
+                    <a
+                      href={`https://shiprocket.co/tracking/${order.shipmentDetails.awbCode}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full py-2.5 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 transition-all flex items-center justify-center gap-1.5 shadow-sm active:scale-[0.98]"
+                    >
+                      Track on Shiprocket
+                    </a>
+                  </div>
+                ) : (
+                  <div className="bg-slate-50/50 border border-dashed border-slate-200 rounded-2xl p-4 text-center">
+                    <p className="text-sm font-semibold text-slate-600">Awaiting shipment details...</p>
+                    <p className="text-xs text-slate-400 mt-1">Once the seller packs and hands over the package, your tracking code will appear here.</p>
+                  </div>
+                )}
+              </div>
+            </div>
           </motion.div>
         )}
 
@@ -859,32 +940,32 @@ const OrderDetailPage = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
-            className="bg-gradient-to-br from-brand-500 to-brand-600 rounded-3xl p-5 shadow-lg text-white"
+            className="bg-white rounded-3xl p-5 shadow-sm border border-slate-100"
           >
             <div className="flex items-center gap-4">
               <div className="relative">
-                <div className="h-14 w-14 rounded-full bg-white/20 backdrop-blur-sm overflow-hidden border-2 border-white/40 shadow-lg">
+                <div className="h-14 w-14 rounded-full bg-slate-100 overflow-hidden border border-slate-200 shadow-sm">
                   <img
                     src="https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=100&auto=format&fit=crop&q=60"
                     alt="Rider"
                     className="h-full w-full object-cover"
                   />
                 </div>
-                <div className="absolute -bottom-1 -right-1 bg-white text-brand-600 text-[9px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5 shadow-md">
+                <div className="absolute -bottom-1 -right-1 bg-amber-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5 shadow-md">
                   4.8 ★
                 </div>
               </div>
               <div className="flex-1">
-                <p className="text-xs font-semibold text-white/80 uppercase tracking-wider">Your Courier</p>
-                <h3 className="font-bold text-white text-lg">{order.deliveryBoy?.name || "Delivery Partner"}</h3>
-                <p className="text-xs text-white/90 mt-0.5">On the way to you</p>
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Your Courier</p>
+                <h3 className="font-bold text-slate-800 text-lg">{order.deliveryBoy?.name || "Delivery Partner"}</h3>
+                <p className="text-xs text-slate-500 mt-0.5">On the way to you</p>
               </div>
               <div className="flex items-center gap-2">
-                <button className="h-11 w-11 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center hover:bg-white/30 transition-colors border border-white/30">
-                  <MessageSquare size={20} className="text-white" />
+                <button className="h-11 w-11 rounded-full bg-slate-100 flex items-center justify-center hover:bg-slate-200 transition-colors border border-slate-200">
+                  <MessageSquare size={20} className="text-slate-600" />
                 </button>
-                <button className="h-11 w-11 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center hover:bg-white/30 transition-colors border border-white/30">
-                  <Phone size={20} className="text-white" />
+                <button className="h-11 w-11 rounded-full bg-slate-100 flex items-center justify-center hover:bg-slate-200 transition-colors border border-slate-200">
+                  <Phone size={20} className="text-slate-600" />
                 </button>
               </div>
             </div>

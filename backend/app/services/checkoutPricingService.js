@@ -34,7 +34,7 @@ export function groupHydratedItemsBySeller(hydratedItems = []) {
   return grouped;
 }
 
-async function computeDistanceKmForSeller({ sellerId, addressLocation, session = null }) {
+async function computeDistanceKmForSeller({ sellerId, addressLocation, isScheduled = false, session = null }) {
   const normalizedLocation = normalizeLocation(addressLocation);
   if (!normalizedLocation) return 0;
 
@@ -58,11 +58,13 @@ async function computeDistanceKmForSeller({ sellerId, addressLocation, session =
   );
   const distanceKm = Number((distanceInMeters / 1000).toFixed(3));
   
-  const radius = Number(seller.serviceRadius || 5);
-  if (distanceKm > radius) {
-    const err = new Error(`${seller.shopName || "Store"} does not deliver to your current location (Distance: ${distanceKm}km, Service Radius: ${radius}km)`);
-    err.statusCode = 400;
-    throw err;
+  if (!isScheduled) {
+    const radius = Number(seller.serviceRadius || 5);
+    if (distanceKm > radius) {
+      const err = new Error(`${seller.shopName || "Store"} does not deliver to your current location (Distance: ${distanceKm}km, Service Radius: ${radius}km)`);
+      err.statusCode = 400;
+      throw err;
+    }
   }
 
   return distanceKm;
@@ -266,6 +268,15 @@ export async function buildCheckoutPricingSnapshot({
     throw err;
   }
 
+  const hasInstant = hydratedItems.some(item => (item.deliveryType || "instant") === "instant");
+  const hasScheduled = hydratedItems.some(item => item.deliveryType === "scheduled");
+  if (hasInstant && hasScheduled) {
+    const err = new Error("Cannot checkout with both instant local and scheduled nationwide delivery items. Please check out separately.");
+    err.statusCode = 400;
+    throw err;
+  }
+  const isScheduled = hasScheduled;
+
   const itemsBySeller = groupHydratedItemsBySeller(hydratedItems);
   const sellerIds = Array.from(itemsBySeller.keys()).sort((a, b) => a.localeCompare(b));
   const sellerBreakdownEntries = [];
@@ -290,6 +301,7 @@ export async function buildCheckoutPricingSnapshot({
     const distanceKm = await computeDistanceKmForSeller({
       sellerId,
       addressLocation: address?.location,
+      isScheduled,
       session,
     });
     // Distribute discount proportionally by seller subtotal

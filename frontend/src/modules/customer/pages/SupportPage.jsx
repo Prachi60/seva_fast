@@ -28,6 +28,17 @@ const SupportPage = () => {
     const [faqs, setFaqs] = useState([]);
 
     useEffect(() => {
+        if (isTicketModalOpen) {
+            document.body.style.overflow = 'hidden';
+        } else {
+            document.body.style.overflow = '';
+        }
+        return () => {
+            document.body.style.overflow = '';
+        };
+    }, [isTicketModalOpen]);
+
+    useEffect(() => {
         const fetchFaqs = async () => {
             try {
                 const cached = sessionStorage.getItem(FAQ_CACHE_KEY);

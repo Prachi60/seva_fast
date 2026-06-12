@@ -47,6 +47,22 @@ const Dashboard = () => {
   const [statsData, setStatsData] = useState(null);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
+  const [deliveryBoys, setDeliveryBoys] = useState([]);
+
+  const fetchDeliveryBoys = async () => {
+    try {
+      const response = await sellerApi.getDeliveryPartners({ verified: 'true', status: 'online' });
+      const payload = response.data.result || {};
+      const list = Array.isArray(payload.items) ? payload.items : (response.data.results || []);
+      setDeliveryBoys(list);
+    } catch (error) {
+      console.error("Failed to fetch delivery partners:", error);
+    }
+  };
+
+  useEffect(() => {
+    fetchDeliveryBoys();
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -215,6 +231,7 @@ const Dashboard = () => {
         order.payment?.method === "cash" || order.payment?.method === "cod"
           ? "Cash on Delivery"
           : "Online Paid",
+      deliveryBoy: order.deliveryBoy || null,
     };
   };
 
@@ -231,6 +248,27 @@ const Dashboard = () => {
     } catch (error) {
       console.error("Failed to update status:", error);
       toast.error("Failed to update status");
+    }
+  };
+
+  const handleAssignDeliveryBoy = async (orderId, deliveryBoyId) => {
+    try {
+      await sellerApi.updateOrderStatus(orderId, { deliveryBoyId });
+      toast.success("Delivery partner assigned successfully");
+      if (typeof refreshOrders === "function") refreshOrders();
+      
+      // Update the selectedOrder details view dynamically
+      if (selectedOrder && selectedOrder.id === orderId) {
+        const assignedBoy = deliveryBoys.find(b => b._id === deliveryBoyId || b.id === deliveryBoyId);
+        setSelectedOrder({ 
+          ...selectedOrder, 
+          deliveryBoy: assignedBoy ? { _id: assignedBoy._id, name: assignedBoy.name, phone: assignedBoy.phone } : null 
+        });
+      }
+    } catch (error) {
+      console.error("Failed to assign delivery partner:", error);
+      const errMsg = error?.response?.data?.message || "Failed to assign delivery partner";
+      toast.error(errMsg);
     }
   };
 
@@ -560,6 +598,54 @@ const Dashboard = () => {
                         </p>
                       </div>
                     </div>
+                    {selectedOrder.status.toLowerCase() !== 'pending' && selectedOrder.status.toLowerCase() !== 'cancelled' && (
+                      <div>
+                        <h4 className="text-xs font-black text-slate-600 uppercase tracking-widest mb-2 flex items-center gap-2">
+                          <HiOutlineTruck className="h-3 w-3 text-primary" /> Delivery Partner
+                        </h4>
+                        <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100 shadow-sm space-y-2">
+                          {selectedOrder.deliveryBoy ? (
+                            <div className="flex flex-col gap-1.5">
+                              <div className="flex justify-between items-center">
+                                <div>
+                                  <p className="text-xs font-bold text-slate-800">{selectedOrder.deliveryBoy.name}</p>
+                                  <p className="text-[11px] font-semibold text-slate-600">{selectedOrder.deliveryBoy.phone}</p>
+                                </div>
+                                <span className="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">Assigned</span>
+                              </div>
+                              <div className="h-px bg-slate-200 my-1" />
+                              <div className="relative">
+                                <select
+                                  value={selectedOrder.deliveryBoy._id || selectedOrder.deliveryBoy.id || ''}
+                                  onChange={(e) => handleAssignDeliveryBoy(selectedOrder.id, e.target.value)}
+                                  className="w-full text-xs pl-3 pr-8 py-2 bg-white rounded-xl border border-slate-200 appearance-none cursor-pointer focus:ring-2 focus:ring-brand-200 outline-none shadow-sm font-semibold text-slate-800"
+                                >
+                                  <option value="">Change Rider...</option>
+                                  {deliveryBoys.map(boy => (
+                                    <option key={boy._id} value={boy._id}>{boy.name} ({boy.phone})</option>
+                                  ))}
+                                </select>
+                                <HiOutlineChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 pointer-events-none opacity-60" />
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="relative">
+                              <select
+                                value=""
+                                onChange={(e) => handleAssignDeliveryBoy(selectedOrder.id, e.target.value)}
+                                className="w-full text-xs pl-3 pr-8 py-2 bg-white rounded-xl border border-slate-200 appearance-none cursor-pointer focus:ring-2 focus:ring-brand-200 outline-none shadow-sm font-semibold text-slate-800"
+                              >
+                                <option value="">Assign Rider...</option>
+                                {deliveryBoys.map(boy => (
+                                  <option key={boy._id} value={boy._id}>{boy.name} ({boy.phone})</option>
+                                ))}
+                              </select>
+                              <HiOutlineChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 pointer-events-none opacity-60" />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
                   <div className="space-y-3 sm:space-y-4">
                     <div className="bg-primary/5 p-3 sm:p-4 rounded-3xl border border-primary/10">
@@ -652,48 +738,65 @@ const Dashboard = () => {
 
               {/* Modal Footer - same as Orders */}
               <div className="px-4 py-3 sm:px-6 sm:py-4 border-t border-slate-100 bg-slate-50 flex flex-col sm:flex-row gap-3 sm:gap-0 sm:items-center justify-end">
-                <div className="flex gap-2 items-center">
+                <div className="flex gap-2 items-center w-full justify-between sm:justify-end">
                   <button
                     onClick={() => setIsOrderModalOpen(false)}
                     className="px-6 py-2.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition-all"
                   >
                     CLOSE
                   </button>
-                  <div className="relative inline-block w-40">
-                    <select
-                      value={selectedOrder.status.toLowerCase()}
-                      onChange={(e) =>
-                        handleStatusUpdate(selectedOrder.id, e.target.value)
-                      }
-                      className={cn(
-                        "w-full text-[10px] pl-3 pr-8 py-2 rounded-xl font-black uppercase tracking-wider border appearance-none cursor-pointer focus:ring-2 focus:ring-offset-1 transition-all outline-none shadow-sm",
-                        getStatusColor(selectedOrder.status) === "warning"
-                          ? "bg-amber-100 text-amber-700 focus:ring-amber-200"
-                          : getStatusColor(selectedOrder.status) === "info"
-                            ? "bg-brand-100 text-brand-700 focus:ring-brand-200"
-                            : getStatusColor(selectedOrder.status) === "primary"
+                  {selectedOrder.status.toLowerCase() === 'pending' ? (
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleStatusUpdate(selectedOrder.id, 'cancelled')}
+                        className="px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider bg-rose-100 text-rose-700 hover:bg-rose-200 transition-all"
+                      >
+                        Reject Order
+                      </button>
+                      <button
+                        onClick={() => handleStatusUpdate(selectedOrder.id, 'confirmed')}
+                        className="px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider bg-brand-100 text-brand-700 hover:bg-brand-200 transition-all"
+                      >
+                        Accept Order
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="relative inline-block w-40">
+                      <select
+                        value={selectedOrder.status.toLowerCase()}
+                        onChange={(e) =>
+                          handleStatusUpdate(selectedOrder.id, e.target.value)
+                        }
+                        className={cn(
+                          "w-full text-xs pl-3 pr-8 py-2 rounded-xl font-black uppercase tracking-wider border appearance-none cursor-pointer focus:ring-2 focus:ring-offset-1 transition-all outline-none shadow-sm",
+                          getStatusColor(selectedOrder.status) === "warning"
+                            ? "bg-amber-100 text-amber-700 focus:ring-amber-200"
+                            : getStatusColor(selectedOrder.status) === "info"
                               ? "bg-brand-100 text-brand-700 focus:ring-brand-200"
-                              : getStatusColor(selectedOrder.status) ===
-                                  "secondary"
-                                ? "bg-purple-100 text-purple-700 focus:ring-purple-200"
+                              : getStatusColor(selectedOrder.status) === "primary"
+                                ? "bg-brand-100 text-brand-700 focus:ring-brand-200"
                                 : getStatusColor(selectedOrder.status) ===
-                                    "success"
-                                  ? "bg-brand-100 text-brand-700 focus:ring-brand-200"
+                                    "secondary"
+                                  ? "bg-purple-100 text-purple-700 focus:ring-purple-200"
                                   : getStatusColor(selectedOrder.status) ===
-                                      "error"
-                                    ? "bg-rose-100 text-rose-700 focus:ring-rose-200"
-                                    : "bg-slate-100 text-slate-700 focus:ring-slate-200"
-                      )}
-                    >
-                      <option value="pending">Pending</option>
-                      <option value="confirmed">Confirmed</option>
-                      <option value="packed">Packed</option>
-                      <option value="out_for_delivery">Out for Delivery</option>
-                      <option value="delivered">Delivered</option>
-                      <option value="cancelled">Cancelled</option>
-                    </select>
-                    <HiOutlineChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 pointer-events-none opacity-60" />
-                  </div>
+                                      "success"
+                                    ? "bg-brand-100 text-brand-700 focus:ring-brand-200"
+                                    : getStatusColor(selectedOrder.status) ===
+                                        "error"
+                                      ? "bg-rose-100 text-rose-700 focus:ring-rose-200"
+                                      : "bg-slate-100 text-slate-700 focus:ring-slate-200"
+                        )}
+                      >
+                        <option value="pending">Pending</option>
+                        <option value="confirmed">Confirmed</option>
+                        <option value="packed">Packed</option>
+                        <option value="out_for_delivery">Out for Delivery</option>
+                        <option value="delivered">Delivered</option>
+                        <option value="cancelled">Cancelled</option>
+                      </select>
+                      <HiOutlineChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 pointer-events-none opacity-60" />
+                    </div>
+                  )}
                 </div>
               </div>
             </motion.div>

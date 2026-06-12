@@ -64,6 +64,7 @@ const ActiveDeliveryBoys = () => {
                 name: r.name,
                 phone: r.phone,
                 email: r.email,
+                avatar: r.profileImage,
                 status: r.isOnline ? 'available' : 'offline',
                 vehicle: r.vehicleType,
                 vehicleNum: r.vehicleNumber || 'N/A',

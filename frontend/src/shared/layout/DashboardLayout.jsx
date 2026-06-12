@@ -12,7 +12,7 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import SellerOrdersContext from '@/modules/seller/context/SellerOrdersContext';
 import SellerEarningsContext, { defaultEarnings } from '@/modules/seller/context/SellerEarningsContext';
-import { getOrderSocket, onSellerOrderNew, onReturnDropOtp } from '@/core/services/orderSocket';
+import { getOrderSocket, onSellerOrderNew, onReturnDropOtp, onOrderStatusUpdate } from '@/core/services/orderSocket';
 import orderAlertSound from '@/assets/sounds/order_alert.mp3';
 
 const POLL_INTERVAL_MS = 15000;
@@ -224,6 +224,18 @@ const DashboardLayout = ({ children, navItems, title }) => {
             window.removeEventListener('focus', onFocus);
             document.removeEventListener('visibilitychange', onVisible);
             window.removeEventListener('online', onOnline);
+        };
+    }, [role]);
+
+    useEffect(() => {
+        if (role !== 'seller') return undefined;
+        const getToken = () => localStorage.getItem('auth_seller');
+        const unSub = onOrderStatusUpdate(getToken, (payload) => {
+            console.log("[DashboardLayout] Socket status update event received:", payload);
+            if (fetchOrdersRef.current) fetchOrdersRef.current();
+        });
+        return () => {
+            if (typeof unSub === 'function') unSub();
         };
     }, [role]);
 

@@ -459,6 +459,34 @@ const SellerProfile = () => {
               </div>
             </div>
           </Card>
+
+          <Card className="p-8 border-none shadow-[0_20px_50px_rgba(0,0,0,0.05)] rounded-[40px] bg-gradient-to-br from-indigo-950 via-slate-900 to-slate-950 text-white relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 rounded-full blur-2xl pointer-events-none" />
+            <h4 className="text-[10px] font-black uppercase tracking-[4px] text-indigo-400 mb-6">
+              Rider Invite Code
+            </h4>
+            <div className="space-y-4">
+              <p className="text-xs text-slate-300 font-semibold leading-relaxed">
+                Riders can enter this code during signup to automatically register under your store's delivery fleet.
+              </p>
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-4 flex flex-col items-center justify-center gap-2 relative">
+                <span className="text-2xl font-black tracking-widest text-indigo-300 uppercase font-mono selection:bg-indigo-500/30">
+                  {profile?.sellerCode || "SV-SEVA12"}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (profile?.sellerCode) {
+                      navigator.clipboard.writeText(profile.sellerCode);
+                      toast.success("Invite code copied to clipboard!");
+                    }
+                  }}
+                  className="text-[10px] font-black tracking-[1.5px] uppercase text-slate-400 hover:text-white transition-colors">
+                  COPY CODE
+                </button>
+              </div>
+            </div>
+          </Card>
         </div>
       </div>
 

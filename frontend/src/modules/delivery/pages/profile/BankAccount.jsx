@@ -1,20 +1,60 @@
-import React from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Landmark, CreditCard, AlertTriangle, CheckCircle2 } from "lucide-react";
 import Button from "@/shared/components/ui/Button";
-import Card from "@/shared/components/ui/Card";
 import Input from "@/shared/components/ui/Input";
+import { useAuth } from "@core/context/AuthContext";
+import axiosInstance from '@core/api/axios';
+import { toast } from "sonner";
 
 const BankAccount = () => {
   const navigate = useNavigate();
+  const { user, refreshUser } = useAuth();
+  
+  const [newAccountNumber, setNewAccountNumber] = useState("");
+  const [confirmAccountNumber, setConfirmAccountNumber] = useState("");
+  const [ifsc, setIfsc] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
   const bankDetails = {
-    accountHolder: "RAHUL KUMAR",
-    accountNumber: "XXXXXXXX8921",
-    ifsc: "HDFC0001234",
-    bankName: "HDFC Bank",
+    accountHolder: user?.accountHolder || user?.name || "Not Set",
+    accountNumber: user?.accountNumber 
+      ? `XXXXXX${user.accountNumber.slice(-4)}` 
+      : "Not Configured",
+    ifsc: user?.ifsc || "N/A",
+    bankName: user?.ifsc ? `${user.ifsc.slice(0, 4).toUpperCase()} Bank` : "N/A",
     branch: "MG Road, Bangalore",
-    status: "Verified",
+    status: user?.accountNumber ? "Verified" : "Not Set",
+  };
+
+  const handleUpdate = async () => {
+    if (!newAccountNumber || !confirmAccountNumber || !ifsc) {
+      toast.error("Please fill in all fields");
+      return;
+    }
+    if (newAccountNumber !== confirmAccountNumber) {
+      toast.error("Account numbers do not match");
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      await axiosInstance.put('/delivery/profile', {
+        accountNumber: newAccountNumber,
+        accountHolder: user?.accountHolder || user?.name || "Rider Account",
+        ifsc: ifsc.toUpperCase()
+      });
+      await refreshUser();
+      setNewAccountNumber("");
+      setConfirmAccountNumber("");
+      setIfsc("");
+      toast.success("Bank details updated successfully!");
+    } catch (error) {
+      console.error("Error updating bank details:", error);
+      toast.error(error.response?.data?.message || "Failed to update bank details");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -40,7 +80,7 @@ const BankAccount = () => {
           <div className="flex justify-between items-start mb-8 relative z-10">
             <Landmark size={32} className="text-white/80" />
             <span className="bg-brand-500/20 text-brand-300 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider border border-brand-500/30 flex items-center">
-              <CheckCircle2 size={12} className="mr-1" /> Active
+              <CheckCircle2 size={12} className="mr-1" /> {bankDetails.status}
             </span>
           </div>
 
@@ -81,19 +121,33 @@ const BankAccount = () => {
               label="New Account Number" 
               placeholder="Enter account number" 
               icon={CreditCard}
+              value={newAccountNumber}
+              onChange={(e) => setNewAccountNumber(e.target.value)}
+              disabled={isLoading}
             />
             <Input 
               label="Confirm Account Number" 
               placeholder="Re-enter account number" 
               icon={CreditCard}
+              value={confirmAccountNumber}
+              onChange={(e) => setConfirmAccountNumber(e.target.value)}
+              disabled={isLoading}
             />
             <Input 
               label="IFSC Code" 
               placeholder="Enter IFSC code" 
               icon={Landmark}
+              value={ifsc}
+              onChange={(e) => setIfsc(e.target.value)}
+              disabled={isLoading}
             />
-            <Button className="w-full mt-2" variant="outline">
-              Verify & Update
+            <Button 
+              className="w-full mt-2" 
+              variant="outline"
+              onClick={handleUpdate}
+              disabled={isLoading}
+            >
+              {isLoading ? "Updating..." : "Verify & Update"}
             </Button>
           </div>
         </div>

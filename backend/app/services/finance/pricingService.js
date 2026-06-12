@@ -356,7 +356,7 @@ export async function hydrateOrderItems(
     .filter(Boolean);
 
   const productQuery = Product.find({ _id: { $in: productIds } })
-    .select("_id name salePrice price mainImage headerId sellerId status approvalStatus variants")
+    .select("_id name salePrice price mainImage headerId sellerId status approvalStatus variants deliveryType weight")
     .lean();
   if (session) productQuery.session(session);
   const products = await productQuery;
@@ -411,6 +411,8 @@ export async function hydrateOrderItems(
       sellerId: String(product.sellerId),
       variantSku: rawVariantSku || "",
       variantName: resolvedVariant ? String(resolvedVariant?.name || "").trim() : "",
+      deliveryType: product.deliveryType || "instant",
+      weight: product.weight || "",
     };
   });
 }
@@ -500,8 +502,52 @@ export async function generateOrderPaymentBreakdown({
   if (hasFreeHandling) {
     handling.handlingFeeCharged = 0;
   }
-  const delivery = calculateCustomerDeliveryFee(distanceKm, effectiveSettings, hasFreeDelivery);
-  const rider = calculateRiderPayout(distanceKm, effectiveSettings);
+  let delivery;
+  let rider;
+  const isScheduled = normalizedItems.some(item => item.deliveryType === "scheduled");
+
+  if (isScheduled) {
+    let totalWeightKg = 0;
+    for (const item of normalizedItems) {
+      const wStr = item.weight || "";
+      let wVal = parseFloat(String(wStr).replace(/[^\d.]/g, ""));
+      if (!Number.isFinite(wVal) || wVal <= 0) wVal = 0.5;
+      if (String(wStr).toLowerCase().includes("gm") || String(wStr).toLowerCase().includes("gram")) {
+        wVal = wVal / 1000;
+      }
+      totalWeightKg += wVal * item.quantity;
+    }
+
+    let deliveryFee = 0;
+    if (!hasFreeDelivery) {
+      if (totalWeightKg <= 0.5) {
+        deliveryFee = 60;
+      } else {
+        deliveryFee = 60 + Math.ceil((totalWeightKg - 0.5) / 0.5) * 40;
+      }
+    }
+
+    delivery = {
+      deliveryFeeCharged: deliveryFee,
+      distanceKmActual: distanceKm,
+      distanceKmRounded: distanceKm,
+      roundedExtraKm: 0,
+      mode: "WEIGHT_BASED",
+      baseFee: deliveryFee,
+      extraFee: 0,
+    };
+
+    rider = {
+      riderPayoutBase: 0,
+      riderPayoutDistance: 0,
+      riderPayoutBonus: 0,
+      riderPayoutTotal: 0,
+      roundedExtraKm: 0,
+    };
+  } else {
+    delivery = calculateCustomerDeliveryFee(distanceKm, effectiveSettings, hasFreeDelivery);
+    rider = calculateRiderPayout(distanceKm, effectiveSettings);
+  }
 
   const normalizedDiscount = roundCurrency(discountTotal || 0);
   const normalizedTax = roundCurrency(taxTotal || 0);

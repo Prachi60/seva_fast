@@ -1,5 +1,5 @@
 import React from 'react';
-import { Check, Shield, Zap, Gift, Users, TrendingUp, ShoppingBag, Layers, Percent } from 'lucide-react';
+import { Check, Shield, Zap, Gift, Users, TrendingUp, ShoppingBag, Layers, Percent, Target, Trophy } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const iconMap = {
@@ -11,9 +11,15 @@ const iconMap = {
     ORDER_COMMISSION: ShoppingBag,
     REFERRAL_LEVELS: Layers,
     LEVEL_COMMISSION: Percent,
+    MONTHLY_REFERRAL_TARGET: Target,
+    MONTHLY_TARGET_REWARD: Trophy,
 };
 
-const PlanCard = ({ plan, onEdit, onDelete, isAdmin = false, isActive = false, expiryDate = null }) => {
+const PlanCard = ({ plan, onEdit, onDelete, isAdmin = false, isActive = false, expiryDate = null, showStrikePriceOnly = false }) => {
+    const hasDiscount = showStrikePriceOnly && plan.originalPrice && plan.price > plan.originalPrice;
+    const activePrice = hasDiscount ? plan.originalPrice : plan.price;
+    const slashedPrice = hasDiscount ? plan.price : null;
+
     return (
         <div 
             className="group relative bg-white rounded-[32px] p-8 shadow-xl shadow-slate-200/50 border border-slate-100 transition-all duration-500 hover:scale-[1.02] hover:shadow-2xl overflow-hidden"
@@ -34,9 +40,21 @@ const PlanCard = ({ plan, onEdit, onDelete, isAdmin = false, isActive = false, e
                         >
                             {plan.name}
                         </span>
-                        <div className="flex items-baseline gap-1">
-                            <span className="text-4xl font-black text-slate-900">₹{plan.price}</span>
-                            <span className="text-sm font-bold text-slate-400">/ year</span>
+                        <div className="flex flex-col gap-1.5">
+                            <div className="flex items-baseline gap-2 flex-wrap">
+                                <span className="text-4xl font-black text-slate-900">₹{activePrice}</span>
+                                {slashedPrice && (
+                                    <span className="text-lg font-bold text-slate-400 line-through">
+                                        ₹{slashedPrice}
+                                    </span>
+                                )}
+                            </div>
+                            {hasDiscount && (
+                                <span className="inline-block bg-rose-50 text-rose-600 px-2 py-0.5 rounded-md text-[10px] font-black w-fit uppercase tracking-widest border border-rose-100/50">
+                                    {Math.round(((plan.price - plan.originalPrice) / plan.price) * 100)}% OFF
+                                </span>
+                            )}
+                            <span className="text-xs font-bold text-slate-400">/ year</span>
                         </div>
                     </div>
                 </div>

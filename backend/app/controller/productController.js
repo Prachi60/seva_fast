@@ -243,32 +243,26 @@ export const getProducts = async (req, res) => {
         coords.lng,
       );
 
-      if (!nearbySellerIds.length) {
-        return handleResponse(res, 200, "No sellers found in your area", {
-          items: [],
-          page: 1,
-          limit: 24,
-          total: 0,
-          totalPages: 1,
-        });
-      }
-
       const nearbySet = new Set(nearbySellerIds.map(String));
       const finalSellerIds = requestedSellerIds.length
         ? requestedSellerIds.filter((id) => nearbySet.has(String(id)))
         : nearbySellerIds;
 
-      if (!finalSellerIds.length) {
-        return handleResponse(res, 200, "No products available in your area", {
-          items: [],
-          page: 1,
-          limit: 24,
-          total: 0,
-          totalPages: 1,
-        });
+      if (requestedSellerIds.length > 0) {
+        query.$or = [
+          { sellerId: { $in: finalSellerIds } },
+          { sellerId: { $in: requestedSellerIds }, deliveryType: "scheduled" }
+        ];
+      } else {
+        if (finalSellerIds.length > 0) {
+          query.$or = [
+            { sellerId: { $in: finalSellerIds } },
+            { deliveryType: "scheduled" }
+          ];
+        } else {
+          query.deliveryType = "scheduled";
+        }
       }
-
-      query.sellerId = { $in: finalSellerIds };
     }
 
     if (categoryIds && typeof categoryIds === "string") {
@@ -330,7 +324,7 @@ export const getProducts = async (req, res) => {
       const [rawProducts, total] = await Promise.all([
         Product.find(finalQuery)
           .select(
-            "name slug description sku price salePrice stock brand weight mainImage galleryImages headerId categoryId subcategoryId sellerId status approvalStatus approvalRequestedAt approvalReviewedAt approvalReviewedBy approvalNote lastSubmittedByRole isFeatured variants createdAt",
+            "name slug description sku price salePrice stock brand weight mainImage galleryImages headerId categoryId subcategoryId sellerId status approvalStatus approvalRequestedAt approvalReviewedAt approvalReviewedBy approvalNote lastSubmittedByRole isFeatured variants deliveryType createdAt",
           )
           // No .populate() — names resolved via cache-backed entityNameCache
           .sort(sortQuery)
@@ -453,7 +447,7 @@ export const getSellerProducts = async (req, res) => {
     ] = await Promise.all([
       Product.find(query)
         .select(
-          "name slug description sku price salePrice stock lowStockAlert brand weight mainImage galleryImages headerId categoryId subcategoryId sellerId status approvalStatus approvalRequestedAt approvalReviewedAt approvalReviewedBy approvalNote lastSubmittedByRole isFeatured variants createdAt",
+          "name slug description sku price salePrice stock lowStockAlert brand weight mainImage galleryImages headerId categoryId subcategoryId sellerId status approvalStatus approvalRequestedAt approvalReviewedAt approvalReviewedBy approvalNote lastSubmittedByRole isFeatured variants deliveryType createdAt",
         )
         .populate("headerId", "name")
         .populate("categoryId", "name")
@@ -562,6 +556,9 @@ export const createProduct = async (req, res) => {
     const role = String(req.user?.role || "").toLowerCase();
     const productData = { ...req.body };
     stripRestrictedModerationFields(productData);
+    if (productData.subcategoryId === "" || productData.subcategoryId === "undefined" || productData.subcategoryId === "null") {
+      productData.subcategoryId = null;
+    }
 
     if (role === "admin") {
       if (!productData.sellerId) {
@@ -718,6 +715,9 @@ export const updateProduct = async (req, res) => {
     const role = String(req.user.role || "").toLowerCase();
     const productData = { ...req.body };
     stripRestrictedModerationFields(productData);
+    if (productData.subcategoryId === "" || productData.subcategoryId === "undefined" || productData.subcategoryId === "null") {
+      productData.subcategoryId = null;
+    }
     if (Object.prototype.hasOwnProperty.call(productData, "sellerId")) {
       delete productData.sellerId;
     }
@@ -942,7 +942,7 @@ export const getProductById = async (req, res) => {
       async () =>
         Product.findById(id)
           .select(
-            "name slug description sku price salePrice stock lowStockAlert brand weight mainImage galleryImages headerId categoryId subcategoryId sellerId status approvalStatus approvalRequestedAt approvalReviewedAt approvalReviewedBy approvalNote lastSubmittedByRole isFeatured variants createdAt",
+            "name slug description sku price salePrice stock lowStockAlert brand weight mainImage galleryImages headerId categoryId subcategoryId sellerId status approvalStatus approvalRequestedAt approvalReviewedAt approvalReviewedBy approvalNote lastSubmittedByRole isFeatured variants deliveryType createdAt",
           )
           .populate("headerId", "name")
           .populate("categoryId", "name")
@@ -965,7 +965,8 @@ export const getProductById = async (req, res) => {
 
     if (enforceRadius) {
       const sellerIdForProduct = String(product?.sellerId?._id || product?.sellerId);
-      if (!nearbySellerSet || !nearbySellerSet.has(sellerIdForProduct)) {
+      const isScheduled = product.deliveryType === "scheduled";
+      if (!isScheduled && (!nearbySellerSet || !nearbySellerSet.has(sellerIdForProduct))) {
         return handleResponse(res, 404, "Product not available in your area");
       }
     }
@@ -1054,7 +1055,7 @@ export const getModerationProducts = async (req, res) => {
       await Promise.all([
         Product.find(moderatedQuery)
           .select(
-            "name slug description sku price salePrice stock lowStockAlert brand weight mainImage galleryImages headerId categoryId subcategoryId sellerId status approvalStatus approvalRequestedAt approvalReviewedAt approvalReviewedBy approvalNote lastSubmittedByRole isFeatured variants createdAt",
+            "name slug description sku price salePrice stock lowStockAlert brand weight mainImage galleryImages headerId categoryId subcategoryId sellerId status approvalStatus approvalRequestedAt approvalReviewedAt approvalReviewedBy approvalNote lastSubmittedByRole isFeatured variants deliveryType createdAt",
           )
           .populate("headerId", "name")
           .populate("categoryId", "name")

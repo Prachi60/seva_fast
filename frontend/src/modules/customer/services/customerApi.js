@@ -10,6 +10,7 @@ export const customerApi = {
   updateProfile: (data) => axiosInstance.put("/customer/profile", data),
   getWalletTransactions: (params) =>
     getWithDedupe("/customer/transactions", params),
+  getReferralTree: () => getWithDedupe("/customer/referrals/tree"),
   getCategories: (params) =>
     getWithDedupe("/categories", params, { ttl: 60 * 1000 }), // 1 min for categories
   getProducts: (params) => getWithDedupe("/products", params),
@@ -151,6 +152,6 @@ export const customerApi = {
     axiosInstance.get(`/push/test-status/${encodeURIComponent(String(orderId || "").trim())}`),
 
   // Plans
-  getPlans: () => getWithDedupe("/plans"),
+  getPlans: (options = {}) => getWithDedupe("/plans", {}, options),
   verifyPlanPayment: (data) => axiosInstance.post("/plans/subscribe/verify", data),
 };

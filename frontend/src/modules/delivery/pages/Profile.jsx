@@ -26,10 +26,11 @@ import { useEffect } from 'react';
 
 const Profile = () => {
   const navigate = useNavigate();
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
   const { settings } = useSettings();
   const appName = settings?.appName || "App";
   const [faqs, setFaqs] = useState([]);
+  const [stats, setStats] = useState({ deliveries: 0, today: 0 });
 
   useEffect(() => {
     const fetchFaqs = async () => {
@@ -40,28 +41,46 @@ const Profile = () => {
         console.error("Error fetching FAQs:", error);
       }
     };
+    const fetchStats = async () => {
+      try {
+        const response = await axiosInstance.get('/delivery/stats');
+        setStats(response.data.result || { deliveries: 0, today: 0 });
+      } catch (error) {
+        console.error("Error fetching stats:", error);
+      }
+    };
     fetchFaqs();
+    fetchStats();
   }, []);
+
+  const getJoinedDate = (dateString) => {
+    if (!dateString) return "N/A";
+    const date = new Date(dateString);
+    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const month = months[date.getMonth()];
+    const year = String(date.getFullYear()).slice(-2);
+    return `${month} '${year}`;
+  };
 
   const menuItems = [
     {
       icon: User,
       label: "Personal Details",
-      sub: "Name, Address, Email",
+      sub: user?.email ? `${user.email}` : "Name, Address, Email",
       color: "text-brand-600 bg-brand-50",
       path: "/delivery/profile/personal-details",
     },
     {
       icon: Truck,
       label: "Vehicle Information",
-      sub: "Bike, License, Insurance",
+      sub: user?.vehicleNumber ? `${user.vehicleType?.toUpperCase() || "Bike"} - ${user.vehicleNumber}` : "Bike, License, Insurance",
       color: "text-orange-600 bg-orange-50",
       path: "/delivery/profile/vehicle-info",
     },
     {
       icon: CreditCard,
       label: "Bank Account",
-      sub: "HDFC Bank **** 8921",
+      sub: user?.accountNumber ? `${user.accountHolder || "Bank"} **** ${user.accountNumber.slice(-4)}` : "Not Added",
       color: "text-brand-600 bg-brand-50",
       path: "/delivery/profile/bank-account",
     },
@@ -75,7 +94,9 @@ const Profile = () => {
     {
       icon: FileText,
       label: "Documents",
-      sub: "Aadhar, PAN, DL (Verified)",
+      sub: (user?.documents?.aadhar || user?.documents?.pan || user?.documents?.drivingLicense)
+        ? `${user.isVerified ? "Verified" : "Pending Verification"}`
+        : "Aadhar, PAN, DL",
       color: "text-purple-600 bg-purple-50",
       path: "/delivery/profile/documents",
     },
@@ -134,24 +155,24 @@ const Profile = () => {
           <div className="relative">
             <div className="w-20 h-20 bg-white rounded-full p-1 shadow-lg">
               <img
-                src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felix"
+                src={user?.profileImage || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.name || 'Felix'}`}
                 alt="Profile"
                 className="w-full h-full rounded-full object-cover bg-gray-100"
               />
             </div>
-            <div className="absolute bottom-0 right-0 w-6 h-6 bg-brand-500 border-2 border-white rounded-full"></div>
+            <div className={`absolute bottom-0 right-0 w-6 h-6 border-2 border-white rounded-full ${user?.isOnline ? "bg-emerald-500" : "bg-gray-400"}`}></div>
           </div>
           <div className="text-white">
-            <h2 className="font-bold text-xl">Rahul Kumar</h2>
+            <h2 className="font-bold text-xl">{user?.name || "Delivery Partner"}</h2>
             <p className="text-white/80 text-sm flex items-center mb-1">
-              <Phone size={14} className="mr-1" /> +91 98765 43210
+              <Phone size={14} className="mr-1" /> {user?.phone || ""}
             </p>
             <div className="flex items-center space-x-2">
               <span className="bg-white/20 px-2 py-0.5 rounded text-xs font-medium backdrop-blur-sm">
-                ID: 882190
+                ID: {user?._id ? user._id.slice(-6).toUpperCase() : "N/A"}
               </span>
-              <span className="bg-brand-500 text-primary-foreground px-2 py-0.5 rounded text-xs font-bold shadow-sm">
-                VERIFIED
+              <span className={`px-2 py-0.5 rounded text-xs font-bold shadow-sm ${user?.isVerified ? "bg-brand-500 text-primary-foreground" : "bg-yellow-500 text-yellow-950"}`}>
+                {user?.isVerified ? "VERIFIED" : "PENDING"}
               </span>
             </div>
           </div>
@@ -168,14 +189,14 @@ const Profile = () => {
           <p className="text-gray-400 text-[10px] uppercase font-bold tracking-wider">
             Joined
           </p>
-          <p className="font-bold text-gray-900 text-lg">Jan '24</p>
+          <p className="font-bold text-gray-900 text-lg">{getJoinedDate(user?.createdAt)}</p>
         </div>
         <div className="w-px bg-gray-100"></div>
         <div className="flex-1">
           <p className="text-gray-400 text-[10px] uppercase font-bold tracking-wider">
             Trips
           </p>
-          <p className="font-bold text-gray-900 text-lg">1,240</p>
+          <p className="font-bold text-gray-900 text-lg">{stats?.deliveries !== undefined ? stats.deliveries.toLocaleString() : "0"}</p>
         </div>
         <div className="w-px bg-gray-100"></div>
         <div className="flex-1">
@@ -183,7 +204,7 @@ const Profile = () => {
             Rating
           </p>
           <p className="font-bold text-gray-900 text-lg flex justify-center items-center">
-            4.8 <span className="text-yellow-400 text-sm ml-1">★</span>
+            {user?.rating || "4.8"} <span className="text-yellow-400 text-sm ml-1">★</span>
           </p>
         </div>
       </motion.div>

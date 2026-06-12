@@ -318,6 +318,14 @@ export async function verifyCustomerOtpCode({
 
   await customer.save();
 
+  if (customer.referredBy) {
+    import("./finance/commissionService.js").then(({ checkAndRewardMonthlyReferralTarget }) => {
+      checkAndRewardMonthlyReferralTarget(customer.referredBy);
+    }).catch(err => {
+      console.error("Error calling checkAndRewardMonthlyReferralTarget:", err);
+    });
+  }
+
   otpAuditLog("customer_otp_verify_success", {
     phone: maskPhone(phone),
     ipAddress,

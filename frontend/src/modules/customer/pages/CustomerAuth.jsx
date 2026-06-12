@@ -107,6 +107,17 @@ const CustomerAuth = () => {
         return () => clearInterval(interval);
     }, [timer]);
 
+    useEffect(() => {
+        if (showPlansModal) {
+            document.body.style.overflow = 'hidden';
+        } else {
+            document.body.style.overflow = '';
+        }
+        return () => {
+            document.body.style.overflow = '';
+        };
+    }, [showPlansModal]);
+
     const handleSendOtp = async (e) => {
         e?.preventDefault();
         if (formData.phone.length !== 10) {
@@ -163,16 +174,14 @@ const CustomerAuth = () => {
 
     const handleViewPlans = async () => {
         setShowPlansModal(true);
-        if (plans.length === 0) {
-            setLoadingPlans(true);
-            try {
-                const res = await customerApi.getPlans();
-                setPlans(res.data.results || res.data.result || []);
-            } catch(e) {
-                toast.error("Failed to fetch plans");
-            }
-            setLoadingPlans(false);
+        setLoadingPlans(true);
+        try {
+            const res = await customerApi.getPlans({ forceRefresh: true });
+            setPlans(res.data.results || res.data.result || []);
+        } catch(e) {
+            toast.error("Failed to fetch plans");
         }
+        setLoadingPlans(false);
     };
 
     return (
@@ -225,16 +234,16 @@ const CustomerAuth = () => {
             </div>
 
             {/* Premium Centered Card Container */}
-            <div className="w-[92%] max-w-[400px] h-[85vh] max-h-[780px] bg-white relative z-10 overflow-hidden rounded-[40px] shadow-[0_50px_100px_-20px_rgba(0,0,0,0.15)] border border-white/40 flex flex-col transition-colors duration-1000">
+            <div className="w-[92%] max-w-[400px] h-[80vh] min-h-[520px] max-h-[780px] bg-white relative z-10 overflow-y-auto custom-scrollbar rounded-[40px] shadow-[0_50px_100px_-20px_rgba(0,0,0,0.15)] border border-white/40 flex flex-col transition-colors duration-1000">
 
                 {/* Scrollable Content Container */}
-                <div className="h-full overflow-y-auto no-scrollbar pb-20">
+                <div className="w-full flex flex-col pb-6">
 
                     {/* Header: Immersive Category Visuals */}
                     <motion.div
                         animate={{ backgroundColor: activeCategory.theme }}
                         transition={{ duration: 1 }}
-                        className="relative h-[35%] w-full overflow-hidden"
+                        className="relative h-48 w-full overflow-hidden"
                     >
                         <AnimatePresence mode="wait">
                             <motion.div
@@ -540,6 +549,9 @@ const CustomerAuth = () => {
                         </AnimatePresence>
                     </div>
 
+                    {/* Bottom Spacer to prevent rounded corner clipping */}
+                    <div className="h-10 shrink-0" />
+
                 </div>
             </div>
 
@@ -591,7 +603,7 @@ const CustomerAuth = () => {
                                             toast.info("Please complete sign up or login to subscribe!");
                                             setShowPlansModal(false);
                                         }}>
-                                            <PlanCard plan={plan} isAdmin={false} />
+                                            <PlanCard plan={plan} isAdmin={false} showStrikePriceOnly={true} />
                                         </div>
                                     ))}
                                 </div>

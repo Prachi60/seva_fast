@@ -53,6 +53,9 @@ const AddProduct = () => {
     status: "active",
     tags: "",
     weight: "",
+    weightVal: "",
+    weightUnit: "kg",
+    deliveryType: "instant",
     brand: "",
     mainImage: null,
     galleryImages: [],
@@ -122,10 +125,18 @@ const AddProduct = () => {
       return;
     }
 
-    // Validate all three category levels are selected
-    if (!formData.header || !formData.category || !formData.subcategory) {
-      toast.error("Please select all three category levels: Main Group, Specific Category, and Sub-Category");
+    // Validate required category levels are selected
+    if (!formData.header || !formData.category) {
+      toast.error("Please select Main Group and Specific Category");
       return;
+    }
+
+    if (formData.deliveryType === "scheduled") {
+      const parsedWeight = parseFloat(formData.weightVal);
+      if (!formData.weightVal || Number.isNaN(parsedWeight) || parsedWeight <= 0) {
+        toast.error("Please provide a valid product weight for scheduled nationwide delivery.");
+        return;
+      }
     }
 
     const firstVariant = formData.variants[0] || {};
@@ -145,6 +156,7 @@ const AddProduct = () => {
       data.append("description", formData.description);
       data.append("brand", formData.brand);
       data.append("weight", formData.weight);
+      data.append("deliveryType", formData.deliveryType || "instant");
       data.append("status", formData.status);
 
       // Map top-level price/stock from first variant for indexing/listing
@@ -361,6 +373,64 @@ const AddProduct = () => {
                   />
                 </div>
               </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-1.5 flex flex-col">
+                  <label className="text-[10px] sm:text-xs font-bold text-slate-600 uppercase tracking-widest ml-1">
+                    Delivery Type <span className="text-rose-500">*</span>
+                  </label>
+                  <select
+                    value={formData.deliveryType || "instant"}
+                    onChange={(e) =>
+                      setFormData({ ...formData, deliveryType: e.target.value })
+                    }
+                    className="w-full px-4 py-2.5 bg-slate-100 border-none rounded-md text-sm font-bold outline-none cursor-pointer focus:ring-2 focus:ring-primary/5 transition-all"
+                  >
+                    <option value="instant">Instant (Local Rider)</option>
+                    <option value="scheduled">Scheduled (Nationwide Shipping)</option>
+                  </select>
+                </div>
+                <div className="space-y-1.5 flex flex-col">
+                  <label className="text-[10px] sm:text-xs font-bold text-slate-600 uppercase tracking-widest ml-1">
+                    Weight {formData.deliveryType === "scheduled" && <span className="text-rose-500">*</span>}
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      value={formData.weightVal || ""}
+                      type="number"
+                      step="any"
+                      min="0"
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        const unit = formData.weightUnit || "kg";
+                        setFormData({
+                          ...formData,
+                          weightVal: val,
+                          weight: val ? `${val} ${unit}` : "",
+                        });
+                      }}
+                      className="flex-1 px-4 py-2.5 bg-slate-100 border-none rounded-md text-sm font-semibold outline-none ring-primary/5 focus:ring-2 transition-all"
+                      placeholder="e.g. 0.5 or 500"
+                    />
+                    <select
+                      value={formData.weightUnit || "kg"}
+                      onChange={(e) => {
+                        const unit = e.target.value;
+                        const val = formData.weightVal || "";
+                        setFormData({
+                          ...formData,
+                          weightUnit: unit,
+                          weight: val ? `${val} ${unit}` : "",
+                        });
+                      }}
+                      className="w-24 px-2 py-2.5 bg-slate-100 border-none rounded-md text-sm font-bold outline-none cursor-pointer focus:ring-2 focus:ring-primary/5 transition-all"
+                    >
+                      <option value="kg">kg</option>
+                      <option value="gm">gm</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 
@@ -565,7 +635,7 @@ const AddProduct = () => {
               <div className="grid grid-cols-1 gap-6">
                 <div className="space-y-1.5 flex flex-col">
                   <label className="text-[10px] sm:text-xs font-bold text-slate-600 uppercase tracking-widest ml-1">
-                    Sub-Category <span className="text-rose-500">*</span>
+                    Sub-Category <span className="text-slate-400 font-medium lowercase italic">(Optional)</span>
                   </label>
                   <select
                     value={formData.subcategory}

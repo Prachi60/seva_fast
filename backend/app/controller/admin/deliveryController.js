@@ -20,6 +20,10 @@ export const getDeliveryPartners = async (req, res) => {
       query.isVerified = false;
     }
 
+    if (req.user.role === "seller") {
+      query.sellerId = req.user.id;
+    }
+
     const { page, limit, skip } = getPagination(req, {
       defaultLimit: 25,
       maxLimit: 200,
@@ -49,9 +53,13 @@ export const getDeliveryPartners = async (req, res) => {
 export const approveDeliveryPartner = async (req, res) => {
   try {
     const { id } = req.params;
-    const rider = await Delivery.findByIdAndUpdate(
-      id,
-      { isVerified: true },
+    const updateQuery = { _id: id };
+    if (req.user.role === "seller") {
+      updateQuery.sellerId = req.user.id;
+    }
+    const rider = await Delivery.findOneAndUpdate(
+      updateQuery,
+      { isVerified: true, isOnline: true },
       { new: true },
     );
 
@@ -68,7 +76,11 @@ export const approveDeliveryPartner = async (req, res) => {
 export const rejectDeliveryPartner = async (req, res) => {
   try {
     const { id } = req.params;
-    const rider = await Delivery.findByIdAndDelete(id);
+    const deleteQuery = { _id: id };
+    if (req.user.role === "seller") {
+      deleteQuery.sellerId = req.user.id;
+    }
+    const rider = await Delivery.findOneAndDelete(deleteQuery);
 
     if (!rider) {
       return handleResponse(res, 404, "Rider not found");
@@ -97,6 +109,10 @@ export const getActiveFleet = async (req, res) => {
         $in: ["confirmed", "packed", "shipped", "out_for_delivery"],
       },
     };
+
+    if (req.user.role === "seller") {
+      query.seller = req.user.id;
+    }
 
     const [activeOrders, total] = await Promise.all([
       Order.find(query)

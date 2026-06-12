@@ -24,10 +24,21 @@ const PlansPage = () => {
         fetchPlans();
     }, []);
 
+    useEffect(() => {
+        if (referralModalOpen) {
+            document.body.style.overflow = 'hidden';
+        } else {
+            document.body.style.overflow = '';
+        }
+        return () => {
+            document.body.style.overflow = '';
+        };
+    }, [referralModalOpen]);
+
     const fetchPlans = async () => {
         try {
             setLoading(true);
-            const res = await customerApi.getPlans();
+            const res = await customerApi.getPlans({ forceRefresh: true });
             setPlans(res.data.results || res.data.result || []);
         } catch (error) {
             toast.error("Failed to load plans");
