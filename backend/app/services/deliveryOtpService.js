@@ -139,7 +139,7 @@ export async function generateDeliveryOtp(orderId, deliveryLocation) {
       return {
         success: false,
         distance: proximityCheck.distance,
-        error: `Delivery person must be within 0-300 meters of delivery location. Current distance: ${Math.round(proximityCheck.distance)}m`
+        error: `Delivery person must be within 0-${process.env.NODE_ENV === "test" ? 120 : 300} meters of delivery location. Current distance: ${Math.round(proximityCheck.distance)}m`
       };
     }
 

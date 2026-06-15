@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import Product from "../../models/product.js";
 import Category from "../../models/category.js";
 import Seller from "../../models/seller.js";
@@ -429,6 +430,7 @@ export async function generateOrderPaymentBreakdown({
   session = null,
   hasFreeDelivery = false,
   hasFreeHandling = false,
+  membershipTier = "none",
 }) {
   const normalizedItems = Array.isArray(preHydratedItems) && preHydratedItems.length > 0
     ? preHydratedItems
@@ -443,7 +445,7 @@ export async function generateOrderPaymentBreakdown({
   }
 
   let sellerConfig = null;
-  if (sellerIds.length === 1) {
+  if (sellerIds.length === 1 && mongoose.Types.ObjectId.isValid(sellerIds[0])) {
     sellerConfig = await Seller.findById(sellerIds[0]).select("commissionModel oneTimeChargePaid categoryCommissionOverrides").lean();
   }
 
@@ -465,43 +467,6 @@ export async function generateOrderPaymentBreakdown({
   const effectiveHandlingStrategy =
     handlingFeeStrategy || effectiveSettings.handlingFeeStrategy;
 
-  let productSubtotal = 0;
-  let sellerPayoutTotal = 0;
-  let adminProductCommissionTotal = 0;
-
-  const lineItems = normalizedItems.map((item) => {
-    const category = categoryById.get(String(item.headerCategoryId));
-    const commission = calculateCategoryCommission(item, category, sellerConfig);
-    productSubtotal = addMoney(productSubtotal, commission.itemSubtotal);
-    sellerPayoutTotal = addMoney(sellerPayoutTotal, commission.sellerPayout);
-    adminProductCommissionTotal = addMoney(
-      adminProductCommissionTotal,
-      commission.adminCommission,
-    );
-
-    return {
-      productId: item.productId,
-      productName: item.productName,
-      quantity: item.quantity,
-      unitPrice: item.price,
-      itemSubtotal: commission.itemSubtotal,
-      sellerPayout: commission.sellerPayout,
-      adminProductCommission: commission.adminCommission,
-      headerCategoryId: item.headerCategoryId,
-      headerCategoryName: category?.name || "Unknown",
-      appliedCommissionType: commission.appliedCommissionType,
-      appliedCommissionValue: commission.appliedCommissionValue,
-      appliedCommissionFixedRule: commission.appliedFixedRule,
-    };
-  });
-
-  let handling = calculateHandlingFee(normalizedItems, {
-    handlingFeeStrategy: effectiveHandlingStrategy,
-    categoryById,
-  });
-  if (hasFreeHandling) {
-    handling.handlingFeeCharged = 0;
-  }
   let delivery;
   let rider;
   const isScheduled = normalizedItems.some(item => item.deliveryType === "scheduled");
@@ -549,7 +514,129 @@ export async function generateOrderPaymentBreakdown({
     rider = calculateRiderPayout(distanceKm, effectiveSettings);
   }
 
-  const normalizedDiscount = roundCurrency(discountTotal || 0);
+  // Calculate Product Subtotal
+  let productSubtotal = 0;
+  for (const item of normalizedItems) {
+    productSubtotal = addMoney(productSubtotal, roundCurrency(item.price * item.quantity));
+  }
+
+  // Deduct Shipping if configured
+  const shippingChargeToDeduct = effectiveSettings.deductShippingBeforeCommission
+    ? (rider.riderPayoutBase + rider.riderPayoutDistance + rider.riderPayoutBonus)
+    : 0;
+  const commissionBase = Math.max(productSubtotal - shippingChargeToDeduct, 0);
+
+  // Determine membership discount
+  let membershipDiscountPercent = 0;
+  const tierClean = String(membershipTier || "none").toLowerCase();
+  if (tierClean === "gold") {
+    membershipDiscountPercent = effectiveSettings.goldCardMemberDiscountPercent ?? 10;
+  } else if (tierClean === "silver") {
+    membershipDiscountPercent = effectiveSettings.silverCardMemberDiscountPercent ?? 5;
+  } else if (tierClean === "bronze") {
+    membershipDiscountPercent = effectiveSettings.bronzeCardMemberDiscountPercent ?? 2.5;
+  }
+  const membershipDiscountAmount = roundCurrency((productSubtotal * membershipDiscountPercent) / 100);
+
+  // Compute splits
+  const isExempt = sellerConfig?.commissionModel === "ONE_TIME" && sellerConfig?.oneTimeChargePaid;
+
+  const categoryConfig = normalizedItems.length > 0 && normalizedItems[0].headerCategoryId
+    ? categoryById.get(String(normalizedItems[0].headerCategoryId))
+    : null;
+
+  const categoryCommissionVal = categoryConfig
+    ? (categoryConfig.adminCommissionValue ?? categoryConfig.adminCommission ?? 0)
+    : 0;
+
+  const adminCommPercent = categoryCommissionVal > 0
+    ? categoryCommissionVal
+    : (effectiveSettings.adminCommissionPercent ?? 0);
+
+  const totalCommissionPercent = isExempt
+    ? 0
+    : (adminCommPercent +
+       (effectiveSettings.technicalChargePercent ?? 0) +
+       (effectiveSettings.subAdminCommissionPercent ?? 0) +
+       (effectiveSettings.fieldWorkerCommissionPercent ?? 0) +
+       (effectiveSettings.advertiseChargePercent ?? 0) +
+       (effectiveSettings.otherMaintenancePercent ?? 0) +
+       (effectiveSettings.affiliateMarketingPercent ?? 0) +
+       (effectiveSettings.directSlabCommissionPercent ?? 0) +
+       (effectiveSettings.siteCashbackPercent ?? 0));
+
+  const totalCommissionAmount = roundCurrency((commissionBase * totalCommissionPercent) / 100);
+
+  const commissionBreakdown = {
+    adminCommissionPercent: adminCommPercent,
+    adminCommissionAmount: isExempt ? 0 : roundCurrency((commissionBase * adminCommPercent) / 100),
+    
+    technicalChargePercent: effectiveSettings.technicalChargePercent ?? 0,
+    technicalChargeAmount: isExempt ? 0 : roundCurrency((commissionBase * (effectiveSettings.technicalChargePercent ?? 0)) / 100),
+    
+    subAdminCommissionPercent: effectiveSettings.subAdminCommissionPercent ?? 0,
+    subAdminCommissionAmount: isExempt ? 0 : roundCurrency((commissionBase * (effectiveSettings.subAdminCommissionPercent ?? 0)) / 100),
+    
+    fieldWorkerCommissionPercent: effectiveSettings.fieldWorkerCommissionPercent ?? 0,
+    fieldWorkerCommissionAmount: isExempt ? 0 : roundCurrency((commissionBase * (effectiveSettings.fieldWorkerCommissionPercent ?? 0)) / 100),
+    
+    directSlabCommissionPercent: effectiveSettings.directSlabCommissionPercent ?? 0,
+    directSlabCommissionAmount: isExempt ? 0 : roundCurrency((commissionBase * (effectiveSettings.directSlabCommissionPercent ?? 0)) / 100),
+    
+    advertiseChargePercent: effectiveSettings.advertiseChargePercent ?? 0,
+    advertiseChargeAmount: isExempt ? 0 : roundCurrency((commissionBase * (effectiveSettings.advertiseChargePercent ?? 0)) / 100),
+    
+    siteCashbackPercent: effectiveSettings.siteCashbackPercent ?? 0,
+    siteCashbackAmount: isExempt ? 0 : roundCurrency((commissionBase * (effectiveSettings.siteCashbackPercent ?? 0)) / 100),
+    
+    otherMaintenancePercent: effectiveSettings.otherMaintenancePercent ?? 0,
+    otherMaintenanceAmount: isExempt ? 0 : roundCurrency((commissionBase * (effectiveSettings.otherMaintenancePercent ?? 0)) / 100),
+    
+    affiliateMarketingPercent: effectiveSettings.affiliateMarketingPercent ?? 0,
+    affiliateMarketingAmount: isExempt ? 0 : roundCurrency((commissionBase * (effectiveSettings.affiliateMarketingPercent ?? 0)) / 100),
+    
+    membershipTier: tierClean,
+    membershipDiscountPercent,
+    membershipDiscountAmount,
+    
+    commissionBaseAmount: commissionBase,
+    shippingDeductedAmount: shippingChargeToDeduct,
+  };
+
+  const lineItems = normalizedItems.map((item) => {
+    const category = categoryById.get(String(item.headerCategoryId));
+    const itemSubtotal = roundCurrency(item.price * item.quantity);
+    
+    const itemShippingProportion = productSubtotal > 0 ? (itemSubtotal / productSubtotal) * shippingChargeToDeduct : 0;
+    const itemCommissionBase = Math.max(itemSubtotal - itemShippingProportion, 0);
+    const itemCommission = isExempt ? 0 : roundCurrency((itemCommissionBase * totalCommissionPercent) / 100);
+    const itemSellerPayout = Math.max(itemSubtotal - itemCommission, 0);
+
+    return {
+      productId: item.productId,
+      productName: item.productName,
+      quantity: item.quantity,
+      unitPrice: item.price,
+      itemSubtotal,
+      sellerPayout: itemSellerPayout,
+      adminProductCommission: itemCommission,
+      headerCategoryId: item.headerCategoryId,
+      headerCategoryName: category?.name || "Unknown",
+      appliedCommissionType: isExempt ? "one_time_exempt" : "global_slab",
+      appliedCommissionValue: isExempt ? 0 : totalCommissionPercent,
+      appliedCommissionFixedRule: "percentage",
+    };
+  });
+
+  let handling = calculateHandlingFee(normalizedItems, {
+    handlingFeeStrategy: effectiveHandlingStrategy,
+    categoryById,
+  });
+  if (hasFreeHandling) {
+    handling.handlingFeeCharged = 0;
+  }
+
+  const finalDiscountTotal = roundCurrency(discountTotal + membershipDiscountAmount);
   const normalizedTax = roundCurrency(taxTotal || 0);
   const normalizedTip = roundCurrency(tipTotal || 0);
 
@@ -557,7 +644,7 @@ export async function generateOrderPaymentBreakdown({
     productSubtotal +
       delivery.deliveryFeeCharged +
       handling.handlingFeeCharged -
-      normalizedDiscount +
+      finalDiscountTotal +
       normalizedTax +
       normalizedTip,
   );
@@ -575,9 +662,14 @@ export async function generateOrderPaymentBreakdown({
       handling.handlingFeeCharged -
       (rider.riderPayoutBase + rider.riderPayoutDistance + rider.riderPayoutBonus),
   );
+
+  // Admin total earning from commission split
+  const adminProductCommissionTotal = totalCommissionAmount;
   const platformTotalEarning = roundCurrency(
     adminProductCommissionTotal + platformLogisticsMargin,
   );
+
+  const sellerPayoutTotal = Math.max(productSubtotal - totalCommissionAmount, 0);
 
   const snapshots = {
     deliverySettings: {
@@ -607,7 +699,7 @@ export async function generateOrderPaymentBreakdown({
     deliveryFeeCharged: delivery.deliveryFeeCharged,
     handlingFeeCharged: handling.handlingFeeCharged,
     tipTotal: normalizedTip,
-    discountTotal: normalizedDiscount,
+    discountTotal: finalDiscountTotal,
     taxTotal: normalizedTax,
     grandTotal,
     sellerPayoutTotal,
@@ -622,8 +714,10 @@ export async function generateOrderPaymentBreakdown({
     codCollectedAmount: 0,
     codRemittedAmount: 0,
     codPendingAmount: 0,
+    estimatedCashback: commissionBreakdown.siteCashbackAmount, // cashback is paid by admin
     distanceKmActual: delivery.distanceKmActual,
     distanceKmRounded: delivery.distanceKmRounded,
     snapshots,
+    commissionBreakdown,
   };
 }

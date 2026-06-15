@@ -25,6 +25,9 @@ import authOtpRoute from "../modules/otp/otp.routes.js";
 import planRoute from "./planRoutes.js";
 import photoOrderRoute from "./photoOrderRoutes.js";
 import sellerPhotoOrderRoute from "./sellerPhotoOrderRoutes.js";
+import professionalRoute from "./professionalRoutes.js";
+import adminProfessionalRoute from "./adminProfessionalRoutes.js";
+
 
 import express from "express";
 
@@ -62,6 +65,8 @@ const setupRoutes = (app) => {
     router.use("/plans", planRoute);
     router.use("/photo-orders", photoOrderRoute);
     router.use("/seller-photo-orders", sellerPhotoOrderRoute);
+    router.use("/professionals", professionalRoute);
+    router.use("/admin/professionals", adminProfessionalRoute);
 
     app.use("/api", router);
 }

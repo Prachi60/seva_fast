@@ -118,6 +118,11 @@ const deliverySchema = new mongoose.Schema(
             ref: "Seller",
             default: null,
         },
+        zoneId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Zone",
+            default: null,
+        },
     },
     {
         timestamps: true,

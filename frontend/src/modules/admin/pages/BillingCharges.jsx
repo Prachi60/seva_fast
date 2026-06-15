@@ -9,7 +9,12 @@ import {
     Settings,
     Zap,
     MapPin,
-    History
+    History,
+    Percent,
+    Users,
+    Award,
+    Megaphone,
+    ShieldCheck
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@shared/components/ui/Toast';
@@ -35,6 +40,22 @@ const BillingCharges = () => {
         onlineEnabled: true,
     });
 
+    const [commissions, setCommissions] = useState({
+        adminCommissionPercent: 5,
+        technicalChargePercent: 5,
+        subAdminCommissionPercent: 10,
+        fieldWorkerCommissionPercent: 5,
+        goldCardMemberDiscountPercent: 10,
+        silverCardMemberDiscountPercent: 5,
+        bronzeCardMemberDiscountPercent: 2.5,
+        directSlabCommissionPercent: 25,
+        deductShippingBeforeCommission: true,
+        advertiseChargePercent: 5,
+        siteCashbackPercent: 15,
+        otherMaintenancePercent: 7.5,
+        affiliateMarketingPercent: 5,
+    });
+
     useEffect(() => {
         const fetchSettings = async () => {
             try {
@@ -44,7 +65,23 @@ const BillingCharges = () => {
                 ]);
 
                 if (platformRes.data?.success && platformRes.data.result) {
-                    setReturnDeliveryCommission(platformRes.data.result.returnDeliveryCommission ?? 0);
+                    const r = platformRes.data.result;
+                    setReturnDeliveryCommission(r.returnDeliveryCommission ?? 0);
+                    setCommissions({
+                        adminCommissionPercent: r.adminCommissionPercent ?? 5,
+                        technicalChargePercent: r.technicalChargePercent ?? 5,
+                        subAdminCommissionPercent: r.subAdminCommissionPercent ?? 10,
+                        fieldWorkerCommissionPercent: r.fieldWorkerCommissionPercent ?? 5,
+                        goldCardMemberDiscountPercent: r.goldCardMemberDiscountPercent ?? 10,
+                        silverCardMemberDiscountPercent: r.silverCardMemberDiscountPercent ?? 5,
+                        bronzeCardMemberDiscountPercent: r.bronzeCardMemberDiscountPercent ?? 2.5,
+                        directSlabCommissionPercent: r.directSlabCommissionPercent ?? 25,
+                        deductShippingBeforeCommission: r.deductShippingBeforeCommission ?? true,
+                        advertiseChargePercent: r.advertiseChargePercent ?? 5,
+                        siteCashbackPercent: r.siteCashbackPercent ?? 15,
+                        otherMaintenancePercent: r.otherMaintenancePercent ?? 7.5,
+                        affiliateMarketingPercent: r.affiliateMarketingPercent ?? 5,
+                    });
                 }
 
                 if (deliveryRes.data?.success && deliveryRes.data.result) {
@@ -76,6 +113,7 @@ const BillingCharges = () => {
             await Promise.all([
                 adminApi.updatePlatformSettings({
                     returnDeliveryCommission,
+                    ...commissions,
                 }),
                 adminApi.updateDeliveryFinanceSettings({
                     deliveryPricingMode: deliveryMode === 'fixed' ? 'fixed_price' : 'distance_based',
@@ -104,6 +142,10 @@ const BillingCharges = () => {
 
     const handleInputChange = (field, value) => {
         setConfig(prev => ({ ...prev, [field]: parseFloat(value) || 0 }));
+    };
+
+    const handleCommissionChange = (field, value) => {
+        setCommissions(prev => ({ ...prev, [field]: value }));
     };
 
     return (
@@ -314,6 +356,232 @@ const BillingCharges = () => {
                                     <p className="text-[10px] font-bold text-slate-400">
                                         Flat amount paid to delivery partner for each approved return pickup (deducted from seller earnings).
                                     </p>
+                                </div>
+                            </div>
+                        </div>
+                    </Card>
+
+                    {/* Commissions & Slab Configuration */}
+                    <Card className="border-none shadow-xl ring-1 ring-slate-100 bg-white rounded-[32px] overflow-hidden text-left">
+                        <div className="p-6 border-b border-slate-50 bg-slate-50/30">
+                            <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest flex items-center gap-3">
+                                <Percent className="h-4 w-4 text-brand-500" />
+                                Global Commissions & Distribution Splits
+                            </h3>
+                        </div>
+                        <div className="p-8 space-y-8">
+                            {/* Platform splits */}
+                            <div>
+                                <h4 className="text-xs font-black text-slate-800 uppercase tracking-wider mb-4 flex items-center gap-2">
+                                    <ShieldCheck className="h-4 w-4 text-slate-400" />
+                                    Platform splits (Admin & System)
+                                </h4>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Admin commission (%)</label>
+                                        <div className="relative group">
+                                            <input
+                                                type="number"
+                                                step="0.1"
+                                                value={commissions.adminCommissionPercent}
+                                                onChange={(e) => handleCommissionChange('adminCommissionPercent', parseFloat(e.target.value) || 0)}
+                                                className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-brand-500/10"
+                                            />
+                                            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">%</span>
+                                        </div>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Technical charge (%)</label>
+                                        <div className="relative group">
+                                            <input
+                                                type="number"
+                                                step="0.1"
+                                                value={commissions.technicalChargePercent}
+                                                onChange={(e) => handleCommissionChange('technicalChargePercent', parseFloat(e.target.value) || 0)}
+                                                className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-brand-500/10"
+                                            />
+                                            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">%</span>
+                                        </div>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Other maintenance (%)</label>
+                                        <div className="relative group">
+                                            <input
+                                                type="number"
+                                                step="0.1"
+                                                value={commissions.otherMaintenancePercent}
+                                                onChange={(e) => handleCommissionChange('otherMaintenancePercent', parseFloat(e.target.value) || 0)}
+                                                className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-brand-500/10"
+                                            />
+                                            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">%</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Operations and Network splits */}
+                            <div className="pt-6 border-t border-slate-100">
+                                <h4 className="text-xs font-black text-slate-800 uppercase tracking-wider mb-4 flex items-center gap-2">
+                                    <Users className="h-4 w-4 text-slate-400" />
+                                    Operations & Network splits
+                                </h4>
+                                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Sub Admin (%)</label>
+                                        <div className="relative group">
+                                            <input
+                                                type="number"
+                                                step="0.1"
+                                                value={commissions.subAdminCommissionPercent}
+                                                onChange={(e) => handleCommissionChange('subAdminCommissionPercent', parseFloat(e.target.value) || 0)}
+                                                className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-brand-500/10"
+                                            />
+                                            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">%</span>
+                                        </div>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Field Worker (%)</label>
+                                        <div className="relative group">
+                                            <input
+                                                type="number"
+                                                step="0.1"
+                                                value={commissions.fieldWorkerCommissionPercent}
+                                                onChange={(e) => handleCommissionChange('fieldWorkerCommissionPercent', parseFloat(e.target.value) || 0)}
+                                                className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-brand-500/10"
+                                            />
+                                            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">%</span>
+                                        </div>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Affiliate Marketing (%)</label>
+                                        <div className="relative group">
+                                            <input
+                                                type="number"
+                                                step="0.1"
+                                                value={commissions.affiliateMarketingPercent}
+                                                onChange={(e) => handleCommissionChange('affiliateMarketingPercent', parseFloat(e.target.value) || 0)}
+                                                className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-brand-500/10"
+                                            />
+                                            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">%</span>
+                                        </div>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Advertise (%)</label>
+                                        <div className="relative group">
+                                            <input
+                                                type="number"
+                                                step="0.1"
+                                                value={commissions.advertiseChargePercent}
+                                                onChange={(e) => handleCommissionChange('advertiseChargePercent', parseFloat(e.target.value) || 0)}
+                                                className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-brand-500/10"
+                                            />
+                                            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">%</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Card Membership discounts */}
+                            <div className="pt-6 border-t border-slate-100">
+                                <h4 className="text-xs font-black text-slate-800 uppercase tracking-wider mb-4 flex items-center gap-2">
+                                    <Award className="h-4 w-4 text-slate-400" />
+                                    Club Membership Discounts
+                                </h4>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-amber-600">Gold Card Member (%)</label>
+                                        <div className="relative group">
+                                            <input
+                                                type="number"
+                                                step="0.1"
+                                                value={commissions.goldCardMemberDiscountPercent}
+                                                onChange={(e) => handleCommissionChange('goldCardMemberDiscountPercent', parseFloat(e.target.value) || 0)}
+                                                className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-brand-500/10"
+                                            />
+                                            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">%</span>
+                                        </div>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-slate-500">Silver Card Member (%)</label>
+                                        <div className="relative group">
+                                            <input
+                                                type="number"
+                                                step="0.1"
+                                                value={commissions.silverCardMemberDiscountPercent}
+                                                onChange={(e) => handleCommissionChange('silverCardMemberDiscountPercent', parseFloat(e.target.value) || 0)}
+                                                className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-brand-500/10"
+                                            />
+                                            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">%</span>
+                                        </div>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-amber-800">Bronze Card Member (%)</label>
+                                        <div className="relative group">
+                                            <input
+                                                type="number"
+                                                step="0.1"
+                                                value={commissions.bronzeCardMemberDiscountPercent}
+                                                onChange={(e) => handleCommissionChange('bronzeCardMemberDiscountPercent', parseFloat(e.target.value) || 0)}
+                                                className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-brand-500/10"
+                                            />
+                                            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">%</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Direct Slab & Promo incentives */}
+                            <div className="pt-6 border-t border-slate-100">
+                                <h4 className="text-xs font-black text-slate-800 uppercase tracking-wider mb-4 flex items-center gap-2">
+                                    <Megaphone className="h-4 w-4 text-slate-400" />
+                                    Target Incentives & Promoting Slabs
+                                </h4>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Direct Customer Buy Slab Commission (%)</label>
+                                        <div className="relative group">
+                                            <input
+                                                type="number"
+                                                step="0.1"
+                                                value={commissions.directSlabCommissionPercent}
+                                                onChange={(e) => handleCommissionChange('directSlabCommissionPercent', parseFloat(e.target.value) || 0)}
+                                                className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-brand-500/10"
+                                            />
+                                            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">%</span>
+                                        </div>
+                                        <p className="text-[10px] font-medium text-slate-400 italic">This payout is utilized for seller & vendor target achievements / incentives.</p>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Site Cashback (%)</label>
+                                        <div className="relative group">
+                                            <input
+                                                type="number"
+                                                step="0.1"
+                                                value={commissions.siteCashbackPercent}
+                                                onChange={(e) => handleCommissionChange('siteCashbackPercent', parseFloat(e.target.value) || 0)}
+                                                className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-brand-500/10"
+                                            />
+                                            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">%</span>
+                                        </div>
+                                        <p className="text-[10px] font-medium text-slate-400 italic">Cashback paid by admin to users on purchases.</p>
+                                    </div>
+                                </div>
+
+                                <div className="mt-6 flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                                    <div>
+                                        <p className="text-xs font-bold text-slate-700">Deduct Shipping Charge Before Calculation</p>
+                                        <p className="text-[10px] text-slate-500 mt-1">Calculate commissions after deducting courier/shipping costs from the product subtotal.</p>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => handleCommissionChange('deductShippingBeforeCommission', !commissions.deductShippingBeforeCommission)}
+                                        className={cn(
+                                            "w-12 h-6 rounded-full p-1 transition-all duration-200 focus:outline-none",
+                                            commissions.deductShippingBeforeCommission ? "bg-black flex justify-end" : "bg-slate-200 flex justify-start"
+                                        )}
+                                    >
+                                        <div className="w-4 h-4 rounded-full bg-white shadow-sm" />
+                                    </button>
                                 </div>
                             </div>
                         </div>

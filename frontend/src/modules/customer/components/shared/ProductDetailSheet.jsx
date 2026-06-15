@@ -187,6 +187,28 @@ const ProductDetailSheet = () => {
         );
     };
 
+    const handleShare = (e) => {
+        if (e) e.stopPropagation();
+        const shareUrl = `${window.location.origin}/product/${selectedProduct.slug || selectedProduct.id}`;
+        if (navigator.share) {
+            navigator.share({
+                title: selectedProduct.name,
+                text: selectedProduct.description || `Check out ${selectedProduct.name} on Seva!`,
+                url: shareUrl,
+            }).catch((err) => {
+                console.log("Error sharing:", err);
+            });
+        } else {
+            navigator.clipboard.writeText(shareUrl)
+                .then(() => {
+                    showToast("Product link copied to clipboard!", "success");
+                })
+                .catch(() => {
+                    showToast("Failed to copy link", "error");
+                });
+        }
+    };
+
     const handleAddToCart = () => {
         addToCart({
             ...selectedProduct,
@@ -324,20 +346,34 @@ const ProductDetailSheet = () => {
                                             </motion.div>
                                         )}
 
-                                        <motion.button
-                                            whileHover={{ scale: 1.05 }}
-                                            whileTap={{ scale: 0.9 }}
-                                            onClick={toggleWishlist}
-                                            className={cn(
-                                                "w-10 h-10 backdrop-blur-md rounded-xl shadow-md shadow-black/5 flex items-center justify-center hover:shadow-lg transition-all border",
-                                                isWishlisted ? "bg-red-50/95 border-red-100" : "bg-white/95 border-gray-100/80"
-                                            )}
-                                        >
-                                            <Heart size={18} className={cn(
-                                                "transition-all",
-                                                isWishlisted ? 'text-red-500 fill-red-500' : 'text-gray-400 hover:text-red-400'
-                                            )} />
-                                        </motion.button>
+                                        <div className="flex items-center gap-2">
+                                            {/* Share Button */}
+                                            <motion.button
+                                                whileHover={{ scale: 1.05 }}
+                                                whileTap={{ scale: 0.9 }}
+                                                onClick={handleShare}
+                                                className="w-10 h-10 bg-white/95 backdrop-blur-md rounded-xl shadow-md shadow-black/5 flex items-center justify-center hover:shadow-lg transition-all border border-gray-100/80 text-gray-500 hover:text-primary"
+                                                title="Share Product"
+                                            >
+                                                <Share2 size={18} strokeWidth={2.5} />
+                                            </motion.button>
+
+                                            {/* Wishlist Button */}
+                                            <motion.button
+                                                whileHover={{ scale: 1.05 }}
+                                                whileTap={{ scale: 0.9 }}
+                                                onClick={toggleWishlist}
+                                                className={cn(
+                                                    "w-10 h-10 backdrop-blur-md rounded-xl shadow-md shadow-black/5 flex items-center justify-center hover:shadow-lg transition-all border",
+                                                    isWishlisted ? "bg-red-50/95 border-red-100" : "bg-white/95 border-gray-100/80"
+                                                )}
+                                            >
+                                                <Heart size={18} className={cn(
+                                                    "transition-all",
+                                                    isWishlisted ? 'text-red-500 fill-red-500' : 'text-gray-400 hover:text-red-400'
+                                                )} />
+                                            </motion.button>
+                                        </div>
                                     </div>
 
                                     {/* Main content area: vertical thumbnails + main image */}
@@ -771,8 +807,30 @@ const ProductDetailSheet = () => {
                             >
                                 <ArrowLeft size={24} className="text-primary" strokeWidth={3} />
                             </motion.button>
-                            <div className="flex gap-3 pointer-events-auto invisible">
-                                {/* Hidden as per request to simplify the view */}
+                            <div className="flex gap-2 pointer-events-auto">
+                                {/* Share Button */}
+                                <motion.button
+                                    whileTap={{ scale: 0.9 }}
+                                    onClick={handleShare}
+                                    className="w-10 h-10 bg-white shadow-lg rounded-full flex items-center justify-center border border-gray-100 text-gray-500 active:text-primary"
+                                >
+                                    <Share2 size={18} strokeWidth={2.5} />
+                                </motion.button>
+
+                                {/* Wishlist Button */}
+                                <motion.button
+                                    whileTap={{ scale: 0.9 }}
+                                    onClick={toggleWishlist}
+                                    className={cn(
+                                        "w-10 h-10 shadow-lg rounded-full flex items-center justify-center border",
+                                        isWishlisted ? "bg-red-50 border-red-100 text-red-500" : "bg-white border-gray-100 text-gray-400"
+                                    )}
+                                >
+                                    <Heart size={18} className={cn(
+                                        "transition-all",
+                                        isWishlisted ? "fill-red-500 text-red-500" : ""
+                                    )} />
+                                </motion.button>
                             </div>
                         </div>
 

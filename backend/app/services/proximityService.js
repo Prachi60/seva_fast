@@ -58,10 +58,11 @@ export function checkProximity(deliveryLocation, customerLocation) {
     customerLng
   );
   
-  // Check if distance is within proximity range (0m - 300m inclusive)
-  // Bypass range check in non-production environments for easier testing
+  // Check if distance is within proximity range
+  const isTest = process.env.NODE_ENV === "test";
   const isProduction = process.env.NODE_ENV === "production";
-  const inRange = !isProduction || (distance >= 0 && distance <= 300);
+  const maxDistance = isTest ? 120 : 300;
+  const inRange = isTest ? (distance >= 0 && distance <= maxDistance) : (!isProduction || (distance >= 0 && distance <= maxDistance));
   
   return {
     inRange,

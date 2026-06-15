@@ -343,6 +343,14 @@ export async function placeOrderAtomic({
       }
     }
 
+    let membershipTier = "none";
+    if (user?.currentPlan && user.planExpiry && new Date(user.planExpiry) > new Date()) {
+      const planName = String(user.currentPlan.name || "").toLowerCase();
+      if (planName.includes("gold")) membershipTier = "gold";
+      else if (planName.includes("silver")) membershipTier = "silver";
+      else if (planName.includes("bronze")) membershipTier = "bronze";
+    }
+
     const pricingSnapshot = await buildCheckoutPricingSnapshot({
       orderItems: orderItemsInput,
       address: normalizedAddress,
@@ -352,6 +360,7 @@ export async function placeOrderAtomic({
       hasFreeDelivery,
       hasFreeHandling,
       cashbackPercentage,
+      membershipTier,
     });
 
     const checkoutGroupId = await generateUniqueCheckoutGroupId({ session });

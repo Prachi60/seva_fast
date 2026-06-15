@@ -161,6 +161,71 @@ const settingSchema = new mongoose.Schema(
                 default: false,
             },
         },
+        // Commission and Charges Configuration
+        adminCommissionPercent: {
+            type: Number,
+            default: 5,
+        },
+        technicalChargePercent: {
+            type: Number,
+            default: 5,
+        },
+        subAdminCommissionPercent: {
+            type: Number,
+            default: 10,
+        },
+        fieldWorkerCommissionPercent: {
+            type: Number,
+            default: 5,
+        },
+        goldCardMemberDiscountPercent: {
+            type: Number,
+            default: 10,
+        },
+        silverCardMemberDiscountPercent: {
+            type: Number,
+            default: 5,
+        },
+        bronzeCardMemberDiscountPercent: {
+            type: Number,
+            default: 2.5,
+        },
+        directSlabCommissionPercent: {
+            type: Number,
+            default: 25,
+        },
+        deductShippingBeforeCommission: {
+            type: Boolean,
+            default: true,
+        },
+        advertiseChargePercent: {
+            type: Number,
+            default: 5,
+        },
+        siteCashbackPercent: {
+            type: Number,
+            default: 15,
+        },
+        otherMaintenancePercent: {
+            type: Number,
+            default: 7.5,
+        },
+        affiliateMarketingPercent: {
+            type: Number,
+            default: 5,
+        },
+        professionalAdListingFee: {
+            type: Number,
+            default: 499,
+        },
+        professionalAdValidityDays: {
+            type: Number,
+            default: 30,
+        },
+        professionalAdSearchRadiusKm: {
+            type: Number,
+            default: 15,
+        },
     },
     {
         timestamps: true,

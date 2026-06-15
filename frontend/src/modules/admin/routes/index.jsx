@@ -20,9 +20,13 @@ import {
   Terminal,
   Sparkles,
   User,
+  Briefcase,
 } from "lucide-react";
 
 const Dashboard = React.lazy(() => import("../pages/Dashboard"));
+const ProfessionalAdsManagement = React.lazy(
+  () => import("../pages/ProfessionalAdsManagement"),
+);
 const CategoryManagement = React.lazy(
   () => import("../pages/CategoryManagement"),
 );
@@ -112,6 +116,12 @@ const navItems = [
       { label: "Main Categories", path: "/admin/categories/level2" },
       { label: "Sub-Categories", path: "/admin/categories/sub" },
     ],
+  },
+  {
+    label: "Professional Directory",
+    path: "/admin/professional-directory",
+    icon: Briefcase,
+    color: "teal",
   },
   { label: "Products", path: "/admin/products", icon: Box, color: "amber" },
   {
@@ -281,6 +291,7 @@ const AdminRoutes = () => {
         <Route path="/settings" element={<AdminSettings />} />
         <Route path="/env" element={<EnvSettings />} />
         <Route path="/plans" element={<PlanManagement />} />
+        <Route path="/professional-directory" element={<ProfessionalAdsManagement />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </DashboardLayout>

@@ -32,11 +32,18 @@ const adminSchema = new mongoose.Schema(
 
     role: {
       type: String,
+      enum: ["admin", "sub-admin"],
       default: "admin",
     },
+    assignedZones: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Zone",
+      },
+    ],
     isVerified: {
       type: Boolean,
-      default: true, // Internal admins might be verified by default or via admin code
+      default: true,
     },
 
     lastLogin: Date,

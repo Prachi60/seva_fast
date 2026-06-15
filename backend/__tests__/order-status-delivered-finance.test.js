@@ -86,7 +86,7 @@ describe("updateOrderStatus delivered finance ordering", () => {
       status: "out_for_delivery",
       orderStatus: "out_for_delivery",
       workflowVersion: 1,
-      deliveryBoy: "rider-old",
+      deliveryBoy: "rider-1",
       seller: "seller-1",
       save: jest.fn().mockImplementation(async () => {
         callOrder.push("save");
@@ -113,9 +113,9 @@ describe("updateOrderStatus delivered finance ordering", () => {
     expect(orderDoc.deliveryBoy).toBe("rider-1");
     expect(orderDoc.status).toBe("delivered");
     expect(orderDoc.orderStatus).toBe("delivered");
-    expect(orderDoc.save).toHaveBeenCalledTimes(1);
+    expect(orderDoc.save).toHaveBeenCalledTimes(2);
 
     expect(mockApplyDeliveredSettlement).toHaveBeenCalledWith(orderDoc, "ORD1");
-    expect(callOrder).toEqual(["save", "settlement"]);
+    expect(callOrder).toEqual(["save", "save", "settlement"]);
   });
 });

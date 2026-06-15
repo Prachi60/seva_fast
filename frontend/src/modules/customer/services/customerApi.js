@@ -154,4 +154,13 @@ export const customerApi = {
   // Plans
   getPlans: (options = {}) => getWithDedupe("/plans", {}, options),
   verifyPlanPayment: (data) => axiosInstance.post("/plans/subscribe/verify", data),
+
+  // Professional Ads & Public Search
+  getProfessionalCategories: () => getWithDedupe("/professionals/categories", {}, { ttl: 60 * 1000 }),
+  searchProfessionals: (params) => getWithDedupe("/professionals/search", params),
+  getProfessionalProfile: () => axiosInstance.get("/professionals/profile"),
+  createProfessionalProfile: (data) => axiosInstance.post("/professionals/profile", data),
+  updateProfessionalProfile: (data) => axiosInstance.put("/professionals/profile", data),
+  updateProfessionalServices: (data) => axiosInstance.put("/professionals/profile/services", data),
+  payProfessionalProfile: () => axiosInstance.post("/professionals/profile/pay"),
 };

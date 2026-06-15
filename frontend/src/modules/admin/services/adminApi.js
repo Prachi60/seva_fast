@@ -6,6 +6,7 @@ export const adminApi = {
     getStats: () => axiosInstance.get('/admin/stats'),
     getUsers: (params) => axiosInstance.get('/admin/users', { params }),
     getUserById: (id) => axiosInstance.get(`/admin/users/${id}`),
+    getUserReferralTree: (id) => axiosInstance.get(`/admin/users/${id}/referral-tree`),
     updateUserWallet: (id, data) => axiosInstance.put(`/admin/users/${id}/wallet`, data),
     getActiveSellers: (params) => axiosInstance.get('/admin/sellers/active', { params }),
     getSellerLocations: (params) => axiosInstance.get('/admin/sellers/locations', { params }),
@@ -140,4 +141,16 @@ export const adminApi = {
     createCoupon: (data) => axiosInstance.post('/admin/coupons', data),
     updateCoupon: (id, data) => axiosInstance.put(`/admin/coupons/${id}`, data),
     deleteCoupon: (id) => axiosInstance.delete(`/admin/coupons/${id}`),
+
+    // Professional Ads & Categories Management
+    getProfessionalCategories: () => axiosInstance.get('/admin/professionals/categories'),
+    createProfessionalCategory: (data) => axiosInstance.post('/admin/professionals/categories', data),
+    updateProfessionalCategory: (id, data) => axiosInstance.put(`/admin/professionals/categories/${id}`, data),
+    deleteProfessionalCategory: (id) => axiosInstance.delete(`/admin/professionals/categories/${id}`),
+    getProfessionalAds: (params) => axiosInstance.get('/admin/professionals/ads', { params }),
+    approveProfessionalAd: (id) => axiosInstance.patch(`/admin/professionals/ads/${id}/approve`),
+    rejectProfessionalAd: (id, data) => axiosInstance.patch(`/admin/professionals/ads/${id}/reject`, data),
+    uploadMedia: (formData) => axiosInstance.post('/media/upload', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+    }),
 };

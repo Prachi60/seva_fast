@@ -50,6 +50,19 @@ const ALLOWED_KEYS = [
   "onlineEnabled",
   "lowStockAlertsEnabled",
   "productApproval",
+  "adminCommissionPercent",
+  "technicalChargePercent",
+  "subAdminCommissionPercent",
+  "fieldWorkerCommissionPercent",
+  "goldCardMemberDiscountPercent",
+  "silverCardMemberDiscountPercent",
+  "bronzeCardMemberDiscountPercent",
+  "directSlabCommissionPercent",
+  "deductShippingBeforeCommission",
+  "advertiseChargePercent",
+  "siteCashbackPercent",
+  "otherMaintenancePercent",
+  "affiliateMarketingPercent",
 ];
 
 function flattenForMongoSet(prefix, value, target) {
@@ -127,6 +140,19 @@ const updateSettingsSchema = Joi.object({
     sellerCreateRequiresApproval: Joi.boolean(),
     sellerEditRequiresApproval: Joi.boolean(),
   }).unknown(false),
+  adminCommissionPercent: Joi.number().min(0).max(100),
+  technicalChargePercent: Joi.number().min(0).max(100),
+  subAdminCommissionPercent: Joi.number().min(0).max(100),
+  fieldWorkerCommissionPercent: Joi.number().min(0).max(100),
+  goldCardMemberDiscountPercent: Joi.number().min(0).max(100),
+  silverCardMemberDiscountPercent: Joi.number().min(0).max(100),
+  bronzeCardMemberDiscountPercent: Joi.number().min(0).max(100),
+  directSlabCommissionPercent: Joi.number().min(0).max(100),
+  deductShippingBeforeCommission: Joi.boolean(),
+  advertiseChargePercent: Joi.number().min(0).max(100),
+  siteCashbackPercent: Joi.number().min(0).max(100),
+  otherMaintenancePercent: Joi.number().min(0).max(100),
+  affiliateMarketingPercent: Joi.number().min(0).max(100),
 }).unknown(false);
 
 /**
@@ -147,7 +173,7 @@ export const getPublicSettings = async (req, res) => {
       async () => {
         const existing = await Setting.findOne(filter)
           .select(
-            "appName supportEmail supportPhone currencySymbol currencyCode timezone logoUrl faviconUrl primaryColor secondaryColor returnDeliveryCommission deliveryPricingMode pricingMode customerBaseDeliveryFee riderBasePayout baseDeliveryCharge baseDistanceCapacityKm incrementalKmSurcharge deliveryPartnerRatePerKm fleetCommissionRatePerKm fixedDeliveryFee handlingFeeStrategy codEnabled onlineEnabled lowStockAlertsEnabled productApproval createdAt",
+            "appName supportEmail supportPhone currencySymbol currencyCode timezone logoUrl faviconUrl primaryColor secondaryColor returnDeliveryCommission deliveryPricingMode pricingMode customerBaseDeliveryFee riderBasePayout baseDeliveryCharge baseDistanceCapacityKm incrementalKmSurcharge deliveryPartnerRatePerKm fleetCommissionRatePerKm fixedDeliveryFee handlingFeeStrategy codEnabled onlineEnabled lowStockAlertsEnabled productApproval adminCommissionPercent technicalChargePercent subAdminCommissionPercent fieldWorkerCommissionPercent goldCardMemberDiscountPercent silverCardMemberDiscountPercent bronzeCardMemberDiscountPercent directSlabCommissionPercent deductShippingBeforeCommission advertiseChargePercent siteCashbackPercent otherMaintenancePercent affiliateMarketingPercent createdAt",
           )
           .lean();
         return existing || null;

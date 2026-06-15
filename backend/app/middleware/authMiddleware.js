@@ -75,7 +75,12 @@ export const optionalVerifyToken = (req, res, next) => {
 ================================ */
 export const allowRoles = (...roles) => {
   return (req, res, next) => {
-    if (!roles.includes(req.user.role)) {
+    const userRole = req.user?.role;
+    const effectiveRoles = roles.includes("admin") && !roles.includes("sub-admin")
+      ? [...roles, "sub-admin"]
+      : roles;
+
+    if (!effectiveRoles.includes(userRole)) {
       return handleResponse(res, 403, "Access denied");
     }
     next();

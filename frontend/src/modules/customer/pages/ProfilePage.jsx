@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import {
     User, MapPin, Package, CreditCard, Wallet, ChevronRight,
     LogOut, ShieldCheck, Heart, HelpCircle, Info, Edit2, ChevronLeft, Bell,
-    Share2, Copy, Sparkles, Camera, X, Users
+    Share2, Copy, Sparkles, Camera, X, Users, Briefcase
 } from 'lucide-react';
 import { useAuth } from '@core/context/AuthContext';
 import { useSettings } from '@core/context/SettingsContext';
@@ -353,6 +353,14 @@ const ProfilePage = () => {
                                 path="/plans"
                                 color="#a855f7"
                                 bg="rgba(168,85,247,0.10)"
+                            />
+                            <MenuItem
+                                icon={Briefcase}
+                                label="Professional Services"
+                                sub="Register or manage professional services"
+                                path="/professionals/panel"
+                                color="#2563eb"
+                                bg="rgba(37,99,235,0.10)"
                             />
                             <div onClick={() => setIsCustomOrderModalOpen(true)}>
                                 <MenuItem

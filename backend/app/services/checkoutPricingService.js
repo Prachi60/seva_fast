@@ -257,6 +257,7 @@ export async function buildCheckoutPricingSnapshot({
   hasFreeDelivery = false,
   hasFreeHandling = false,
   cashbackPercentage = 0,
+  membershipTier = "none",
 }) {
   const hydratedItems = await hydrateOrderItems(orderItems, {
     session,
@@ -315,10 +316,13 @@ export async function buildCheckoutPricingSnapshot({
       session,
       hasFreeDelivery,
       hasFreeHandling,
+      membershipTier,
     });
     
     // Add estimatedCashback
-    breakdown.estimatedCashback = round2((breakdown.productSubtotal * cashbackPercentage) / 100);
+    if (cashbackPercentage > 0) {
+      breakdown.estimatedCashback = round2(Math.max(breakdown.estimatedCashback || 0, (breakdown.productSubtotal * cashbackPercentage) / 100));
+    }
 
     sellerBreakdownEntries.push({
       sellerId,

@@ -47,11 +47,15 @@ import {
   requireApprovedSeller,
 } from "../middleware/authMiddleware.js";
 import { handleShiprocketWebhook } from "../controller/shippingWebhookController.js";
+import { loadSubadminZones } from "../middleware/zoneRestrictionMiddleware.js";
 
 const router = express.Router();
 
 // Shiprocket Webhook (Public)
 router.post("/shipping/shiprocket/webhook", handleShiprocketWebhook);
+
+router.use(verifyToken);
+router.use(loadSubadminZones);
 
 // Finance-aware checkout/order flow
 router.post(

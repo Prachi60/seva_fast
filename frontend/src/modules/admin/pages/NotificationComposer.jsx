@@ -359,7 +359,7 @@ const NotificationComposer = () => {
                                             <input
                                                 value={deepLink}
                                                 onChange={(e) => setDeepLink(e.target.value)}
-                                                className="ds-input w-full pl-9"
+                                                className="ds-input ds-input-icon-left"
                                                 placeholder="/deals/category"
                                             />
                                         </div>

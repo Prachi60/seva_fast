@@ -45,6 +45,9 @@ const PaymentStatusPage = lazy(() => import('../../modules/customer/pages/Paymen
 const SearchPage = lazy(() => import('../../modules/customer/pages/SearchPage'));
 const WalletPage = lazy(() => import('../../modules/customer/pages/WalletPage'));
 const PlansPage = lazy(() => import('../../modules/customer/pages/PlansPage'));
+const LocalProfessionalsDirectory = lazy(() => import('../../modules/customer/pages/LocalProfessionalsDirectory'));
+const ProfessionalProfilePanel = lazy(() => import('../../modules/customer/pages/ProfessionalProfilePanel'));
+
 
 // Lazy load heavy modules
 const SellerModule = lazy(() => import('../../modules/seller/routes/index'));
@@ -180,6 +183,8 @@ const AppRouter = () => {
                         { path: 'wallet', element: <ProtectedRoute><WalletPage /></ProtectedRoute> },
                         { path: 'plans', element: <ProtectedRoute><PlansPage /></ProtectedRoute> },
                         { path: 'search', element: <SearchPage /> },
+                        { path: 'professionals', element: <LocalProfessionalsDirectory /> },
+                        { path: 'professionals/panel', element: <ProtectedRoute><ProfessionalProfilePanel /></ProtectedRoute> },
                     ]
                 },
                 {

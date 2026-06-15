@@ -16,6 +16,19 @@ const DEFAULT_FINANCE_SETTINGS = {
   handlingFeeStrategy: HANDLING_FEE_STRATEGY.HIGHEST_CATEGORY_FEE,
   codEnabled: true,
   onlineEnabled: true,
+  adminCommissionPercent: 5,
+  technicalChargePercent: 5,
+  subAdminCommissionPercent: 10,
+  fieldWorkerCommissionPercent: 5,
+  goldCardMemberDiscountPercent: 10,
+  silverCardMemberDiscountPercent: 5,
+  bronzeCardMemberDiscountPercent: 2.5,
+  directSlabCommissionPercent: 25,
+  deductShippingBeforeCommission: true,
+  advertiseChargePercent: 5,
+  siteCashbackPercent: 15,
+  otherMaintenancePercent: 7.5,
+  affiliateMarketingPercent: 5,
 };
 
 export function normalizeFinanceSettings(raw = {}) {
@@ -69,6 +82,19 @@ export function normalizeFinanceSettings(raw = {}) {
     handlingFeeStrategy,
     codEnabled: raw.codEnabled ?? DEFAULT_FINANCE_SETTINGS.codEnabled,
     onlineEnabled: raw.onlineEnabled ?? DEFAULT_FINANCE_SETTINGS.onlineEnabled,
+    adminCommissionPercent: Number(raw.adminCommissionPercent ?? DEFAULT_FINANCE_SETTINGS.adminCommissionPercent),
+    technicalChargePercent: Number(raw.technicalChargePercent ?? DEFAULT_FINANCE_SETTINGS.technicalChargePercent),
+    subAdminCommissionPercent: Number(raw.subAdminCommissionPercent ?? DEFAULT_FINANCE_SETTINGS.subAdminCommissionPercent),
+    fieldWorkerCommissionPercent: Number(raw.fieldWorkerCommissionPercent ?? DEFAULT_FINANCE_SETTINGS.fieldWorkerCommissionPercent),
+    goldCardMemberDiscountPercent: Number(raw.goldCardMemberDiscountPercent ?? DEFAULT_FINANCE_SETTINGS.goldCardMemberDiscountPercent),
+    silverCardMemberDiscountPercent: Number(raw.silverCardMemberDiscountPercent ?? DEFAULT_FINANCE_SETTINGS.silverCardMemberDiscountPercent),
+    bronzeCardMemberDiscountPercent: Number(raw.bronzeCardMemberDiscountPercent ?? DEFAULT_FINANCE_SETTINGS.bronzeCardMemberDiscountPercent),
+    directSlabCommissionPercent: Number(raw.directSlabCommissionPercent ?? DEFAULT_FINANCE_SETTINGS.directSlabCommissionPercent),
+    deductShippingBeforeCommission: Boolean(raw.deductShippingBeforeCommission ?? DEFAULT_FINANCE_SETTINGS.deductShippingBeforeCommission),
+    advertiseChargePercent: Number(raw.advertiseChargePercent ?? DEFAULT_FINANCE_SETTINGS.advertiseChargePercent),
+    siteCashbackPercent: Number(raw.siteCashbackPercent ?? DEFAULT_FINANCE_SETTINGS.siteCashbackPercent),
+    otherMaintenancePercent: Number(raw.otherMaintenancePercent ?? DEFAULT_FINANCE_SETTINGS.otherMaintenancePercent),
+    affiliateMarketingPercent: Number(raw.affiliateMarketingPercent ?? DEFAULT_FINANCE_SETTINGS.affiliateMarketingPercent),
   };
 }
 

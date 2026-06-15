@@ -73,6 +73,14 @@ export const previewCheckoutFinance = async (req, res) => {
       console.log(`[DEBUG] User: ${customer._id}, monthlyOrderCount: ${monthlyOrderCount}, limit: ${parseInt(freeDelFeature?.value, 10)}, hasFreeDel: ${hasFreeDelivery}, hasFreeHand: ${hasFreeHandling}, cashbackPct: ${cashbackPercentage}`);
     }
 
+    let membershipTier = "none";
+    if (customer?.currentPlan && customer.planExpiry && new Date(customer.planExpiry) > new Date()) {
+      const planName = String(customer.currentPlan.name || "").toLowerCase();
+      if (planName.includes("gold")) membershipTier = "gold";
+      else if (planName.includes("silver")) membershipTier = "silver";
+      else if (planName.includes("bronze")) membershipTier = "bronze";
+    }
+
     const pricingSnapshot = await buildCheckoutPricingSnapshot({
       orderItems: payload.items,
       address: payload.address,
@@ -81,6 +89,7 @@ export const previewCheckoutFinance = async (req, res) => {
       hasFreeDelivery,
       hasFreeHandling,
       cashbackPercentage,
+      membershipTier,
     });
 
     const sellerBreakdowns = pricingSnapshot.sellerBreakdownEntries.map((entry) => ({

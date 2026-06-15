@@ -32,11 +32,20 @@ import {
     getUsers,
     getUserById,
     updateUserWallet,
+    getUserReferralTree,
     getSellers,
     getSellerLocations,
     getPlatformSettings,
     updatePlatformSettings,
-    updateSellerDetails
+    updateSellerDetails,
+    getZones,
+    createZone,
+    updateZone,
+    deleteZone,
+    getSubadmins,
+    createSubadmin,
+    updateSubadmin,
+    deleteSubadmin
 } from "../controller/adminController.js";
 import {
     exportAdminFinanceStatementController,
@@ -49,6 +58,7 @@ import {
 } from "../controller/adminFinanceController.js";
 
 import { verifyToken, allowRoles } from "../middleware/authMiddleware.js";
+import { loadSubadminZones } from "../middleware/zoneRestrictionMiddleware.js";
 import {
     adminBootstrapRateLimiter,
     authRouteRateLimiter,
@@ -64,6 +74,9 @@ const smallAdminPayload = createContentLengthGuard(
 router.post("/bootstrap", adminBootstrapRateLimiter, smallAdminPayload, bootstrapAdmin);
 router.post("/signup", adminBootstrapRateLimiter, smallAdminPayload, signupAdmin);
 router.post("/login", authRouteRateLimiter, smallAdminPayload, loginAdmin);
+
+router.use(verifyToken);
+router.use(loadSubadminZones);
 
 // Profile routes
 router.get(
@@ -149,6 +162,7 @@ router.put(
 );
 router.get("/users", verifyToken, allowRoles("admin"), getUsers);
 router.get("/users/:id", verifyToken, allowRoles("admin"), getUserById);
+router.get("/users/:id/referral-tree", verifyToken, allowRoles("admin"), getUserReferralTree);
 router.put("/users/:id/wallet", verifyToken, allowRoles("admin"), updateUserWallet);
 router.get("/sellers", verifyToken, allowRoles("admin"), getSellers);
 router.get("/sellers/locations", verifyToken, allowRoles("admin"), getSellerLocations);
@@ -199,11 +213,23 @@ router.get("/delivery-withdrawals", verifyToken, allowRoles("admin"), getDeliver
 router.get("/seller-transactions", verifyToken, allowRoles("admin"), getSellerTransactions);
 router.put("/withdrawals/:id", verifyToken, allowRoles("admin"), updateWithdrawalStatus);
 
+// Zone Management
+router.get("/zones", verifyToken, allowRoles("admin", "sub-admin"), getZones);
+router.post("/zones", verifyToken, allowRoles("admin"), createZone);
+router.put("/zones/:id", verifyToken, allowRoles("admin"), updateZone);
+router.delete("/zones/:id", verifyToken, allowRoles("admin"), deleteZone);
+
+// Sub-Admin Management
+router.get("/subadmins", verifyToken, allowRoles("admin"), getSubadmins);
+router.post("/subadmins", verifyToken, allowRoles("admin"), createSubadmin);
+router.put("/subadmins/:id", verifyToken, allowRoles("admin"), updateSubadmin);
+router.delete("/subadmins/:id", verifyToken, allowRoles("admin"), deleteSubadmin);
+
 // Protected admin route example
 router.get(
     "/dashboard",
     verifyToken,
-    allowRoles("admin"),
+    allowRoles("admin", "sub-admin"),
     (req, res) => {
         res.json({
             success: true,

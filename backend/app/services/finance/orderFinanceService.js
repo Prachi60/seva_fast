@@ -354,6 +354,181 @@ export async function creditAdminEarning(order, { session, actorId } = {}) {
   return adminEarning;
 }
 
+export async function distributeSlabCommissions(order, { session, actorId } = {}) {
+  if (order.financeFlags?.slabCommissionsDistributed) return;
+
+  const breakdown = order.paymentBreakdown || {};
+  const commBreakdown = breakdown.commissionBreakdown || {};
+
+  // 1. Affiliate Marketing Commission (Affiliate Marketing 5%)
+  // Goes to customer's referrer (referredBy)
+  const affiliateAmt = roundCurrency(commBreakdown.affiliateMarketingAmount || 0);
+  if (affiliateAmt > 0 && order.customer) {
+    const CustomerModel = (await import("../../models/customer.js")).default;
+    const customer = await CustomerModel.findById(order.customer).session(session);
+    if (customer && customer.referredBy) {
+      const referrerId = customer.referredBy;
+      await creditWallet({
+        ownerType: OWNER_TYPE.CUSTOMER,
+        ownerId: referrerId,
+        amount: affiliateAmt,
+        bucket: "available",
+        session,
+      });
+
+      const referrerWallet = await getOrCreateWallet(OWNER_TYPE.CUSTOMER, referrerId, { session });
+      await createLedgerEntry(
+        {
+          orderId: order._id,
+          walletId: referrerWallet._id,
+          actorType: OWNER_TYPE.CUSTOMER,
+          actorId: referrerId,
+          type: LEDGER_TRANSACTION_TYPE.COMMISSION,
+          direction: LEDGER_DIRECTION.CREDIT,
+          amount: affiliateAmt,
+          paymentMode: order.paymentMode,
+          description: `Affiliate commission for order ${order.orderId}`,
+          reference: `AFF-COMM-${order.orderId}`,
+        },
+        { session },
+      );
+
+      const TransactionModel = (await import("../../models/transaction.js")).default;
+      await TransactionModel.create([{
+        user: referrerId,
+        userModel: "User",
+        type: "Commission",
+        amount: affiliateAmt,
+        status: "Settled",
+        reference: `AFF-COMM-${order.orderId}`,
+        meta: {
+          orderId: order._id,
+          commissionPercent: commBreakdown.affiliateMarketingPercent,
+          orderAmount: breakdown.productSubtotal,
+          description: `Affiliate Marketing Commission from order ${order.orderId}`
+        }
+      }], { session });
+    }
+  }
+
+  // 2. Sub-Admin and Field Worker Commissions
+  // Go to the onboarder of the seller (seller.onboardedBy)
+  const subAdminAmt = roundCurrency(commBreakdown.subAdminCommissionAmount || 0);
+  const fieldWorkerAmt = roundCurrency(commBreakdown.fieldWorkerCommissionAmount || 0);
+  
+  if ((subAdminAmt > 0 || fieldWorkerAmt > 0) && order.seller) {
+    const SellerModel = (await import("../../models/seller.js")).default;
+    const seller = await SellerModel.findById(order.seller).session(session);
+    
+    if (seller && seller.onboardedBy) {
+      const onboarderId = seller.onboardedBy;
+      const CustomerModel = (await import("../../models/customer.js")).default;
+      const onboarderUser = await CustomerModel.findById(onboarderId).session(session);
+      
+      if (onboarderUser) {
+        // Distribute Field Worker Commission
+        if (fieldWorkerAmt > 0) {
+          await creditWallet({
+            ownerType: OWNER_TYPE.CUSTOMER,
+            ownerId: onboarderId,
+            amount: fieldWorkerAmt,
+            bucket: "available",
+            session,
+          });
+
+          const onboarderWallet = await getOrCreateWallet(OWNER_TYPE.CUSTOMER, onboarderId, { session });
+          await createLedgerEntry(
+            {
+              orderId: order._id,
+              walletId: onboarderWallet._id,
+              actorType: OWNER_TYPE.CUSTOMER,
+              actorId: onboarderId,
+              type: LEDGER_TRANSACTION_TYPE.INCENTIVE,
+              direction: LEDGER_DIRECTION.CREDIT,
+              amount: fieldWorkerAmt,
+              paymentMode: order.paymentMode,
+              description: `Field worker commission for seller onboarding: ${seller.shopName}`,
+              reference: `FW-COMM-${order.orderId}`,
+            },
+            { session },
+          );
+
+          const TransactionModel = (await import("../../models/transaction.js")).default;
+          await TransactionModel.create([{
+            user: onboarderId,
+            userModel: "User",
+            type: "Incentive",
+            amount: fieldWorkerAmt,
+            status: "Settled",
+            reference: `FW-COMM-${order.orderId}`,
+            meta: {
+              orderId: order._id,
+              commissionPercent: commBreakdown.fieldWorkerCommissionPercent,
+              orderAmount: breakdown.productSubtotal,
+              description: `Field Worker Commission for onboarding seller ${seller.shopName}`
+            }
+          }], { session });
+        }
+
+        // Distribute Sub-Admin Commission
+        if (subAdminAmt > 0) {
+          let targetSubAdminId = onboarderId;
+          if (onboarderUser.referredBy) {
+            targetSubAdminId = onboarderUser.referredBy;
+          }
+
+          await creditWallet({
+            ownerType: OWNER_TYPE.CUSTOMER,
+            ownerId: targetSubAdminId,
+            amount: subAdminAmt,
+            bucket: "available",
+            session,
+          });
+
+          const subAdminWallet = await getOrCreateWallet(OWNER_TYPE.CUSTOMER, targetSubAdminId, { session });
+          await createLedgerEntry(
+            {
+              orderId: order._id,
+              walletId: subAdminWallet._id,
+              actorType: OWNER_TYPE.CUSTOMER,
+              actorId: targetSubAdminId,
+              type: LEDGER_TRANSACTION_TYPE.COMMISSION,
+              direction: LEDGER_DIRECTION.CREDIT,
+              amount: subAdminAmt,
+              paymentMode: order.paymentMode,
+              description: `Sub-admin commission for order ${order.orderId}`,
+              reference: `SA-COMM-${order.orderId}`,
+            },
+            { session },
+          );
+
+          const TransactionModel = (await import("../../models/transaction.js")).default;
+          await TransactionModel.create([{
+            user: targetSubAdminId,
+            userModel: "User",
+            type: "Commission",
+            amount: subAdminAmt,
+            status: "Settled",
+            reference: `SA-COMM-${order.orderId}`,
+            meta: {
+              orderId: order._id,
+              commissionPercent: commBreakdown.subAdminCommissionPercent,
+              orderAmount: breakdown.productSubtotal,
+              description: `Sub-Admin Commission from order ${order.orderId}`
+            }
+          }], { session });
+        }
+      }
+    }
+  }
+
+  // Mark distributed
+  order.financeFlags = {
+    ...(order.financeFlags || {}),
+    slabCommissionsDistributed: true,
+  };
+}
+
 export async function handleOnlineOrderFinance(
   orderOrId,
   { actorId = null, transactionId = "", metadata = {} } = {},
@@ -620,6 +795,7 @@ export async function settleDeliveredOrder(orderOrId, { actorId = null } = {}) {
     }
     await createPendingRiderPayout(order, { session, actorId });
     await creditAdminEarning(order, { session, actorId });
+    await distributeSlabCommissions(order, { session, actorId });
 
     order.financeFlags = {
       ...(order.financeFlags || {}),
