@@ -479,7 +479,14 @@ export const getOrderDetails = async (req, res) => {
       ((!order.deliveryBoy && order.workflowStatus === WORKFLOW_STATUS.DELIVERY_SEARCH) || 
        (!order.returnDeliveryBoy && ["return_approved", "return_pickup_assigned"].includes(order.returnStatus)));
 
-    const isAdmin = role === "admin";
+    const isSubAdmin = role === "sub-admin";
+    const isSubAdminWithZone =
+      isSubAdmin &&
+      order.zoneId &&
+      Array.isArray(req.assignedZones) &&
+      req.assignedZones.some((id) => String(id) === String(order.zoneId));
+
+    const isAdmin = role === "admin" || isSubAdminWithZone;
 
     if (
       !isOwnerCustomer &&
@@ -1864,6 +1871,7 @@ export const getSellerOrders = async (req, res) => {
   try {
     const { id: userId, role } = req.user;
     const { startDate, endDate, status: statusParam } = req.query;
+    const assignedZones = req.assignedZones || [];
 
     const { page, limit, skip } = getPagination(req, {
       defaultLimit: 25,
@@ -1878,6 +1886,7 @@ export const getSellerOrders = async (req, res) => {
       endDate,
       skip,
       limit,
+      assignedZones,
     });
 
 

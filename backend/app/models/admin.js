@@ -41,6 +41,11 @@ const adminSchema = new mongoose.Schema(
         ref: "Zone",
       },
     ],
+    allowedPermissions: [
+      {
+        type: String,
+      },
+    ],
     isVerified: {
       type: Boolean,
       default: true,

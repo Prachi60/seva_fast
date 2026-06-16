@@ -6,20 +6,37 @@ import Product from "../../models/product.js";
 
 const DASHBOARD_CATEGORY_COLORS = ["#4f46e5", "#10b981", "#f59e0b", "#ef4444"];
 
-export async function getAdminDashboardStats() {
+export async function getAdminDashboardStats(assignedZones) {
+  const hasZones = Array.isArray(assignedZones) && assignedZones.length > 0;
+
+  const sellerQuery = hasZones ? { zoneId: { $in: assignedZones } } : {};
+  const activeSellerQuery = hasZones ? { isVerified: true, zoneId: { $in: assignedZones } } : { isVerified: true };
+  const deliveryQuery = hasZones ? { zoneId: { $in: assignedZones } } : {};
+  const orderQuery = hasZones ? { zoneId: { $in: assignedZones } } : {};
+
+  let sellerIds = [];
+  if (hasZones) {
+    const sellersInZones = await Seller.find({ zoneId: { $in: assignedZones } }).select("_id").lean();
+    sellerIds = sellersInZones.map(s => s._id);
+  }
+
   const [totalCustomers, totalSellers, totalRiders, totalOrders] =
     await Promise.all([
       User.countDocuments({ role: "user" }),
-      Seller.countDocuments(),
-      Delivery.countDocuments(),
-      Order.countDocuments(),
+      Seller.countDocuments(sellerQuery),
+      Delivery.countDocuments(deliveryQuery),
+      Order.countDocuments(orderQuery),
     ]);
 
   const totalUsers = totalCustomers + totalSellers + totalRiders;
-  const activeSellers = await Seller.countDocuments({ isVerified: true });
+  const activeSellers = await Seller.countDocuments(activeSellerQuery);
+
+  const revenueMatch = hasZones 
+    ? { status: "delivered", zoneId: { $in: assignedZones } } 
+    : { status: "delivered" };
 
   const revenueData = await Order.aggregate([
-    { $match: { status: "delivered" } },
+    { $match: revenueMatch },
     { $group: { _id: null, total: { $sum: "$pricing.total" } } },
   ]);
   const totalRevenue = revenueData[0]?.total || 0;
@@ -27,8 +44,12 @@ export async function getAdminDashboardStats() {
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
+  const historyMatch = hasZones
+    ? { createdAt: { $gte: thirtyDaysAgo }, status: "delivered", zoneId: { $in: assignedZones } }
+    : { createdAt: { $gte: thirtyDaysAgo }, status: "delivered" };
+
   const historyAggregation = await Order.aggregate([
-    { $match: { createdAt: { $gte: thirtyDaysAgo }, status: "delivered" } },
+    { $match: historyMatch },
     {
       $group: {
         _id: {
@@ -56,12 +77,17 @@ export async function getAdminDashboardStats() {
     });
   }
 
-  const recentOrders = await Order.find()
+  const recentOrders = await Order.find(orderQuery)
     .sort({ createdAt: -1 })
     .limit(5)
     .populate("customer", "name");
 
+  const productMatchPipeline = hasZones 
+    ? [{ $match: { sellerId: { $in: sellerIds } } }] 
+    : [];
+
   const categoryData = await Product.aggregate([
+    ...productMatchPipeline,
     { $group: { _id: "$headerId", count: { $sum: 1 } } },
     {
       $lookup: {
@@ -76,7 +102,12 @@ export async function getAdminDashboardStats() {
     { $limit: 4 },
   ]);
 
+  const topProductsMatch = hasZones
+    ? [{ $match: { zoneId: { $in: assignedZones } } }]
+    : [];
+
   const topProducts = await Order.aggregate([
+    ...topProductsMatch,
     { $unwind: "$items" },
     {
       $group: {

@@ -58,8 +58,14 @@ export function buildSellerOrdersQuery({
   statusParam,
   startDate,
   endDate,
+  assignedZones,
 }) {
-  const base = role === "admin" ? {} : { seller: userId };
+  let base = {};
+  if (role === "sub-admin" && Array.isArray(assignedZones) && assignedZones.length > 0) {
+    base = { zoneId: { $in: assignedZones } };
+  } else if (role === "seller") {
+    base = { seller: userId };
+  }
   const withStatus = {
     ...base,
     ...normalizeSellerStatusFilter(statusParam),
@@ -75,6 +81,7 @@ export async function fetchSellerOrdersPage({
   endDate,
   skip,
   limit,
+  assignedZones,
 }) {
   const query = buildSellerOrdersQuery({
     role,
@@ -82,6 +89,7 @@ export async function fetchSellerOrdersPage({
     statusParam,
     startDate,
     endDate,
+    assignedZones,
   });
 
   const [orders, total, summaryRows] = await Promise.all([
