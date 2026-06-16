@@ -35,6 +35,8 @@ const ProfessionalAdsManagement = () => {
     const [categoryName, setCategoryName] = useState('');
     const [categoryDesc, setCategoryDesc] = useState('');
     const [categoryIcon, setCategoryIcon] = useState('');
+    const [categoryPriceType, setCategoryPriceType] = useState('free');
+    const [categoryPrice, setCategoryPrice] = useState('');
     const [isUploadingIcon, setIsUploadingIcon] = useState(false);
 
     // Ads Moderation State
@@ -47,9 +49,9 @@ const ProfessionalAdsManagement = () => {
     const [selectedAdForReject, setSelectedAdForReject] = useState(null);
     const [rejectionReason, setRejectionReason] = useState('');
 
-    const fetchData = async () => {
+    const fetchData = async (showSpinner = true) => {
         try {
-            setIsLoading(true);
+            if (showSpinner) setIsLoading(true);
             const catRes = await adminApi.getProfessionalCategories();
             if (catRes.data?.success) {
                 setCategories(catRes.data.result || catRes.data.results || []);
@@ -64,15 +66,33 @@ const ProfessionalAdsManagement = () => {
             }
         } catch (error) {
             console.error("Failed to load professional data", error);
-            showToast('Failed to load listings', 'error');
+            if (showSpinner) showToast('Failed to load listings', 'error');
         } finally {
-            setIsLoading(false);
+            if (showSpinner) setIsLoading(false);
         }
     };
 
     useEffect(() => {
-        fetchData();
+        fetchData(true);
+
+        const intervalId = setInterval(() => {
+            fetchData(false);
+        }, 5000);
+
+        return () => clearInterval(intervalId);
     }, [statusFilter, paymentFilter]);
+
+    useEffect(() => {
+        const isAnyModalOpen = isCategoryModalOpen || !!selectedAdForDetail || isRejectModalOpen;
+        if (isAnyModalOpen) {
+            document.body.style.overflow = 'hidden';
+        } else {
+            document.body.style.overflow = '';
+        }
+        return () => {
+            document.body.style.overflow = '';
+        };
+    }, [isCategoryModalOpen, selectedAdForDetail, isRejectModalOpen]);
 
     // Categories Logic
     const handleOpenCategoryModal = (cat = null) => {
@@ -81,11 +101,15 @@ const ProfessionalAdsManagement = () => {
             setCategoryName(cat.name);
             setCategoryDesc(cat.description || '');
             setCategoryIcon(cat.icon || '');
+            setCategoryPriceType(cat.priceType || 'free');
+            setCategoryPrice(cat.price !== undefined ? cat.price : '');
         } else {
             setSelectedCategory(null);
             setCategoryName('');
             setCategoryDesc('');
             setCategoryIcon('');
+            setCategoryPriceType('free');
+            setCategoryPrice('');
         }
         setIsCategoryModalOpen(true);
     };
@@ -122,11 +146,16 @@ const ProfessionalAdsManagement = () => {
         if (!categoryName.trim()) {
             return showToast('Category name is required', 'error');
         }
+        if (categoryPriceType === 'paid' && (!categoryPrice || Number(categoryPrice) <= 0)) {
+            return showToast('Please enter a valid price for a paid category', 'error');
+        }
         try {
             const payload = {
                 name: categoryName,
                 description: categoryDesc,
-                icon: categoryIcon
+                icon: categoryIcon,
+                priceType: categoryPriceType,
+                price: categoryPriceType === 'paid' ? Number(categoryPrice) : 0
             };
 
             if (selectedCategory) {
@@ -276,11 +305,16 @@ const ProfessionalAdsManagement = () => {
                                 <p className="text-sm text-slate-500 mt-4 leading-relaxed font-bold">
                                     {cat.description || "No description provided."}
                                 </p>
-                                <div className="mt-4 flex items-center gap-2">
+                                <div className="mt-4 flex items-center gap-2 flex-wrap">
                                     <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${
                                         cat.isActive ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'
                                     }`}>
                                         {cat.isActive ? 'Active' : 'Inactive'}
+                                    </span>
+                                    <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${
+                                        cat.priceType === 'paid' ? 'bg-amber-50 text-amber-600' : 'bg-blue-50 text-blue-600'
+                                    }`}>
+                                        {cat.priceType === 'paid' ? `Paid (₹${cat.price})` : 'Free'}
                                     </span>
                                 </div>
                             </div>
@@ -416,8 +450,8 @@ const ProfessionalAdsManagement = () => {
 
             {/* CATEGORY EDITOR MODAL */}
             {isCategoryModalOpen && (
-                <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in">
-                    <div className="bg-white rounded-[40px] p-8 max-w-md w-full shadow-2xl space-y-6">
+                <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[300] p-4 animate-in fade-in">
+                    <div className="bg-white rounded-[24px] md:rounded-[40px] p-6 md:p-8 max-w-md w-full shadow-2xl space-y-4 md:space-y-6 max-h-[85vh] overflow-y-auto scrollbar-thin">
                         <div className="flex justify-between items-center">
                             <h2 className="text-xl font-black text-slate-900">
                                 {selectedCategory ? 'Edit Service Category' : 'Create Service Category'}
@@ -483,6 +517,32 @@ const ProfessionalAdsManagement = () => {
                                     </div>
                                 )}
                             </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">Category Type</label>
+                                    <select
+                                        value={categoryPriceType}
+                                        onChange={(e) => setCategoryPriceType(e.target.value)}
+                                        className="w-full px-5 py-4 bg-slate-50 border-none rounded-[16px] text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-brand-500/10 transition-all cursor-pointer"
+                                    >
+                                        <option value="free">Free</option>
+                                        <option value="paid">Paid</option>
+                                    </select>
+                                </div>
+                                {categoryPriceType === 'paid' && (
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">Price (₹)</label>
+                                        <input
+                                            type="number"
+                                            value={categoryPrice}
+                                            onChange={(e) => setCategoryPrice(e.target.value)}
+                                            placeholder="e.g. 499"
+                                            min="1"
+                                            className="w-full px-5 py-4 bg-slate-50 border-none rounded-[16px] text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-brand-500/10 transition-all"
+                                        />
+                                    </div>
+                                )}
+                            </div>
                             <button
                                 type="submit"
                                 className="w-full py-4 bg-black text-white rounded-[20px] text-xs font-black uppercase tracking-widest transition-all hover:scale-[1.01] mt-4"
@@ -496,7 +556,7 @@ const ProfessionalAdsManagement = () => {
 
             {/* AD DETAIL VIEW MODAL */}
             {selectedAdForDetail && (
-                <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in">
+                <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[300] p-4 animate-in fade-in">
                     <div className="bg-white rounded-[40px] p-8 max-w-2xl w-full shadow-2xl space-y-6 max-h-[85vh] overflow-y-auto">
                         <div className="flex justify-between items-center">
                             <div>
@@ -511,12 +571,20 @@ const ProfessionalAdsManagement = () => {
                             <div className="space-y-4">
                                 <h3 className="text-xs font-black uppercase tracking-widest text-slate-400">Profile Details</h3>
                                 <div className="space-y-3 font-bold text-sm text-slate-700">
-                                    {selectedAdForDetail.category?.name && (
+                                    {selectedAdForDetail.categories && selectedAdForDetail.categories.length > 0 ? (
+                                        <p className="flex items-start gap-2">
+                                            <Briefcase className="h-4 w-4 text-slate-400 mt-0.5" />
+                                            <span>
+                                                <span className="text-slate-400 font-medium mr-1">Categories:</span>
+                                                {selectedAdForDetail.categories.map(c => c.name).join(', ')}
+                                            </span>
+                                        </p>
+                                    ) : selectedAdForDetail.category?.name ? (
                                         <p className="flex items-center gap-2">
                                             <Briefcase className="h-4 w-4 text-slate-400" />
                                             <span className="text-slate-400 font-medium mr-1">Category:</span> {selectedAdForDetail.category.name}
                                         </p>
-                                    )}
+                                    ) : null}
                                     <p className="flex items-start gap-2">
                                         <MapPin className="h-4 w-4 text-slate-400 mt-0.5" />
                                         <span>
@@ -591,8 +659,8 @@ const ProfessionalAdsManagement = () => {
 
             {/* REJECT MODAL */}
             {isRejectModalOpen && (
-                <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in">
-                    <div className="bg-white rounded-[40px] p-8 max-w-md w-full shadow-2xl space-y-6">
+                <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[300] p-4 animate-in fade-in">
+                    <div className="bg-white rounded-[24px] md:rounded-[40px] p-6 md:p-8 max-w-md w-full shadow-2xl space-y-4 md:space-y-6 max-h-[85vh] overflow-y-auto scrollbar-thin">
                         <div className="flex justify-between items-center">
                             <h2 className="text-xl font-black text-slate-900">Provide Rejection Reason</h2>
                             <button onClick={() => setIsRejectModalOpen(false)} className="p-2 bg-slate-50 hover:bg-slate-100 rounded-full transition-all">

@@ -231,7 +231,20 @@ const LocalProfessionalsDirectory = () => {
                                 <div className="flex justify-between items-start gap-4">
                                     <div>
                                         <h3 className="text-lg font-black text-slate-950 leading-tight">{pro.name}</h3>
-                                        <p className="text-xs font-black text-brand-600 mt-1 uppercase tracking-wider">{pro.profession}</p>
+                                        <div className="flex items-center gap-1.5 flex-wrap mt-1">
+                                            <span className="text-xs font-black text-brand-600 uppercase tracking-wider">{pro.profession}</span>
+                                            {pro.categories && pro.categories.length > 0 ? (
+                                                pro.categories.map((c) => (
+                                                    <span key={c._id} className="px-2 py-0.5 bg-slate-100 rounded text-[9px] font-black text-slate-500 uppercase tracking-wider">
+                                                        {c.name}
+                                                    </span>
+                                                ))
+                                            ) : pro.category?.name ? (
+                                                <span className="px-2 py-0.5 bg-slate-100 rounded text-[9px] font-black text-slate-500 uppercase tracking-wider">
+                                                    {pro.category.name}
+                                                </span>
+                                            ) : null}
+                                        </div>
                                     </div>
                                     <div className="flex items-center gap-1 text-amber-500 bg-amber-50 px-2.5 py-1 rounded-xl">
                                         <Star className="h-3.5 w-3.5 fill-amber-500" />
@@ -295,7 +308,20 @@ const LocalProfessionalsDirectory = () => {
                         <div className="flex justify-between items-start">
                             <div>
                                 <h2 className="text-xl font-black text-slate-950">{activeCatalogProfessional.name}</h2>
-                                <p className="text-xs font-black text-brand-600 mt-1 uppercase tracking-wider">{activeCatalogProfessional.profession}</p>
+                                <div className="flex items-center gap-1.5 flex-wrap mt-1">
+                                    <span className="text-xs font-black text-brand-600 uppercase tracking-wider">{activeCatalogProfessional.profession}</span>
+                                    {activeCatalogProfessional.categories && activeCatalogProfessional.categories.length > 0 ? (
+                                        activeCatalogProfessional.categories.map((c) => (
+                                            <span key={c._id} className="px-2 py-0.5 bg-slate-100 rounded text-[9px] font-black text-slate-500 uppercase tracking-wider">
+                                                {c.name}
+                                            </span>
+                                        ))
+                                    ) : activeCatalogProfessional.category?.name ? (
+                                        <span className="px-2 py-0.5 bg-slate-100 rounded text-[9px] font-black text-slate-500 uppercase tracking-wider">
+                                            {activeCatalogProfessional.category.name}
+                                        </span>
+                                    ) : null}
+                                </div>
                             </div>
                             <button onClick={() => setActiveCatalogProfessional(null)} className="p-2 bg-slate-50 hover:bg-slate-100 rounded-full transition-all">
                                 <X className="h-4 w-4" />

@@ -3,7 +3,7 @@ import handleResponse from "../../utils/helper.js";
 
 export const createCategory = async (req, res) => {
     try {
-        const { name, description, icon } = req.body;
+        const { name, description, icon, priceType, price } = req.body;
         if (!name) {
             return handleResponse(res, 400, "Category name is required");
         }
@@ -17,6 +17,8 @@ export const createCategory = async (req, res) => {
             name: name.trim(),
             description: description?.trim() || "",
             icon: icon?.trim() || "",
+            priceType: priceType || "free",
+            price: priceType === "paid" ? Number(price) || 0 : 0,
         });
 
         return handleResponse(res, 201, "Professional category created successfully", category);
@@ -37,7 +39,7 @@ export const getCategories = async (req, res) => {
 export const updateCategory = async (req, res) => {
     try {
         const { id } = req.params;
-        const { name, description, icon, isActive } = req.body;
+        const { name, description, icon, isActive, priceType, price } = req.body;
 
         const category = await ProfessionalCategory.findById(id);
         if (!category) {
@@ -58,6 +60,8 @@ export const updateCategory = async (req, res) => {
         if (description !== undefined) category.description = description.trim();
         if (icon !== undefined) category.icon = icon.trim();
         if (isActive !== undefined) category.isActive = isActive;
+        if (priceType !== undefined) category.priceType = priceType;
+        if (price !== undefined) category.price = priceType === "paid" ? Number(price) || 0 : 0;
 
         await category.save();
 

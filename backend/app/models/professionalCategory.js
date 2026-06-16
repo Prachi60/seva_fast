@@ -20,6 +20,15 @@ const professionalCategorySchema = new mongoose.Schema(
             default: true,
             index: true,
         },
+        priceType: {
+            type: String,
+            enum: ["free", "paid"],
+            default: "free",
+        },
+        price: {
+            type: Number,
+            default: 0,
+        },
     },
     {
         timestamps: true,

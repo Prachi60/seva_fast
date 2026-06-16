@@ -48,6 +48,12 @@ const professionalAdSchema = new mongoose.Schema(
             ref: "ProfessionalCategory",
             required: true,
         },
+        categories: [
+            {
+                type: mongoose.Schema.Types.ObjectId,
+                ref: "ProfessionalCategory",
+            },
+        ],
         experienceYears: {
             type: Number,
             min: 0,
