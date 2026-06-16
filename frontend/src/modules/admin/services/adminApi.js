@@ -150,6 +150,19 @@ export const adminApi = {
     getProfessionalAds: (params) => axiosInstance.get('/admin/professionals/ads', { params }),
     approveProfessionalAd: (id) => axiosInstance.patch(`/admin/professionals/ads/${id}/approve`),
     rejectProfessionalAd: (id, data) => axiosInstance.patch(`/admin/professionals/ads/${id}/reject`, data),
+
+    // Sub-Admin Management
+    getSubadmins: () => axiosInstance.get('/admin/subadmins'),
+    createSubadmin: (data) => axiosInstance.post('/admin/subadmins', data),
+    updateSubadmin: (id, data) => axiosInstance.put(`/admin/subadmins/${id}`, data),
+    deleteSubadmin: (id) => axiosInstance.delete(`/admin/subadmins/${id}`),
+
+    // Zone Management
+    getZones: (params) => axiosInstance.get('/admin/zones', { params }),
+    createZone: (data) => axiosInstance.post('/admin/zones', data),
+    updateZone: (id, data) => axiosInstance.put(`/admin/zones/${id}`, data),
+    deleteZone: (id) => axiosInstance.delete(`/admin/zones/${id}`),
+
     uploadMedia: (formData) => axiosInstance.post('/media/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
     }),

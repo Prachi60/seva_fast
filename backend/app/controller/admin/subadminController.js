@@ -14,7 +14,7 @@ export const getSubadmins = async (req, res) => {
 
 export const createSubadmin = async (req, res) => {
   try {
-    const { name, email, password, phone, assignedZones } = req.body;
+    const { name, email, password, phone, assignedZones, allowedPermissions } = req.body;
     if (!name || !email || !password) {
       return handleResponse(res, 400, "Name, email and password are required");
     }
@@ -31,6 +31,7 @@ export const createSubadmin = async (req, res) => {
       phone,
       role: "sub-admin",
       assignedZones: assignedZones || [],
+      allowedPermissions: allowedPermissions || [],
       isVerified: true,
     });
 
@@ -46,7 +47,7 @@ export const createSubadmin = async (req, res) => {
 export const updateSubadmin = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, email, password, phone, assignedZones } = req.body;
+    const { name, email, password, phone, assignedZones, allowedPermissions } = req.body;
 
     const subadmin = await Admin.findById(id);
     if (!subadmin || subadmin.role !== "sub-admin") {
@@ -64,6 +65,7 @@ export const updateSubadmin = async (req, res) => {
     if (name) subadmin.name = name;
     if (phone) subadmin.phone = phone;
     if (assignedZones) subadmin.assignedZones = assignedZones;
+    if (allowedPermissions) subadmin.allowedPermissions = allowedPermissions;
     if (password) subadmin.password = password;
 
     await subadmin.save();

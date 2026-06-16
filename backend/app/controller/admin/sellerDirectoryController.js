@@ -23,6 +23,8 @@ export const getSellerLocations = async (req, res) => {
       maxLimit: 100,
     });
 
+    const assignedZones = req.assignedZones || [];
+
     const data = await getSellerLocationsData({
       q,
       category,
@@ -33,6 +35,7 @@ export const getSellerLocations = async (req, res) => {
       page,
       limit,
       skip,
+      assignedZones,
     });
 
     return handleResponse(res, 200, "Seller locations fetched successfully", data);
@@ -48,6 +51,7 @@ export const getActiveSellers = async (req, res) => {
       defaultLimit: 20,
       maxLimit: 100,
     });
+    const assignedZones = req.assignedZones || [];
 
     const data = await getActiveSellersData({
       q,
@@ -56,6 +60,7 @@ export const getActiveSellers = async (req, res) => {
       page,
       limit,
       skip,
+      assignedZones,
     });
 
 
@@ -68,7 +73,8 @@ export const getActiveSellers = async (req, res) => {
 
 export const getSellers = async (req, res) => {
   try {
-    const sellers = await getSellerOptions();
+    const assignedZones = req.assignedZones || [];
+    const sellers = await getSellerOptions(assignedZones);
     return handleResponse(res, 200, "Sellers fetched", sellers);
   } catch (error) {
     return handleResponse(res, 500, error.message);

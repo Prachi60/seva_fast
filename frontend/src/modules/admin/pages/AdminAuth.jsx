@@ -56,8 +56,8 @@ const AdminAuth = () => {
         // Only validate password complexity for signup, not login
         if (!isLogin) {
             const pwd = (formData.password || '').trim();
-            if (pwd.length < 10) {
-                toast.error('Password must be at least 10 characters long.');
+            if (pwd.length < 8) {
+                toast.error('Password must be at least 8 characters long.');
                 setIsLoading(false);
                 return;
             }
@@ -197,12 +197,12 @@ const AdminAuth = () => {
                                         type={showPassword ? "text" : "password"}
                                         name="password"
                                         required
-                                        minLength={10}
+                                        minLength={8}
                                         maxLength={128}
                                         autoComplete="current-password"
                                         value={formData.password}
                                         onChange={handleChange}
-                                        placeholder="Password (min 10 chars)"
+                                        placeholder="Password (min 8 chars)"
                                         className="w-full pl-14 pr-14 py-5 bg-[#f8f9ff] border-2 border-transparent rounded-[24px] text-sm font-bold text-gray-700 outline-none focus:bg-white focus:border-brand-200 focus:ring-4 focus:ring-brand-500/10 transition-all placeholder:text-gray-300"
                                     />
                                     <button

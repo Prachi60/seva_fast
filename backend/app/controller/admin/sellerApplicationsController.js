@@ -14,12 +14,15 @@ export const getPendingSellers = async (req, res) => {
       maxLimit: 100,
     });
 
+    const assignedZones = req.assignedZones || [];
+
     const data = await getPendingSellerApplications({
       q,
       status,
       page,
       limit,
       skip,
+      assignedZones,
     });
 
     return handleResponse(res, 200, "Pending seller applications fetched", data);

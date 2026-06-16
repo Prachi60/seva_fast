@@ -24,6 +24,7 @@ export async function getSellerLocationsData({
   page,
   limit,
   skip,
+  assignedZones,
 }) {
   const normalizedLifecycle = String(lifecycle || "all").trim().toLowerCase();
   const normalizedCategory = String(category || "all").trim();
@@ -36,6 +37,9 @@ export async function getSellerLocationsData({
     : 500;
 
   const filters = [];
+  if (assignedZones && assignedZones.length > 0) {
+    filters.push({ zoneId: { $in: assignedZones } });
+  }
   if (normalizedCategory && normalizedCategory !== "all") {
     filters.push({
       category: new RegExp(`^${escapeRegExp(normalizedCategory)}$`, "i"),
@@ -271,8 +275,12 @@ export async function getActiveSellersData({
   page,
   limit,
   skip,
+  assignedZones,
 }) {
   const baseQuery = { isVerified: true, isActive: true };
+  if (assignedZones && assignedZones.length > 0) {
+    baseQuery.zoneId = { $in: assignedZones };
+  }
   const filters = [baseQuery];
 
   if (category && category !== "all") {
@@ -504,8 +512,12 @@ export async function getActiveSellersData({
   };
 }
 
-export async function getSellerOptions() {
-  return Seller.find({})
+export async function getSellerOptions(assignedZones) {
+  const query = {};
+  if (assignedZones && assignedZones.length > 0) {
+    query.zoneId = { $in: assignedZones };
+  }
+  return Seller.find(query)
     .select("_id shopName name email phone")
     .sort({ shopName: 1 })
     .lean();

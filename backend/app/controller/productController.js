@@ -1,4 +1,5 @@
 import Product from "../models/product.js";
+import Seller from "../models/seller.js";
 import { handleResponse } from "../utils/helper.js";
 import { slugify } from "../utils/slugify.js";
 import getPagination from "../utils/pagination.js";
@@ -1009,7 +1010,22 @@ export const getModerationProducts = async (req, res) => {
     if (status && status !== "all") {
       baseQuery.status = status;
     }
-    if (sellerId && sellerId !== "all") {
+
+    if (req.user?.role === "sub-admin") {
+      const assignedZones = req.assignedZones || [];
+      const sellersInZones = await Seller.find({ zoneId: { $in: assignedZones } }).select("_id").lean();
+      const sellerIds = sellersInZones.map(s => s._id);
+
+      if (sellerId && sellerId !== "all") {
+        if (sellerIds.map(String).includes(String(sellerId))) {
+          baseQuery.sellerId = sellerId;
+        } else {
+          baseQuery.sellerId = { $in: [] };
+        }
+      } else {
+        baseQuery.sellerId = { $in: sellerIds };
+      }
+    } else if (sellerId && sellerId !== "all") {
       baseQuery.sellerId = sellerId;
     }
 

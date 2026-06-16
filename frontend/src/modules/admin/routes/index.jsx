@@ -2,6 +2,7 @@ import React from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import DashboardLayout from "@shared/layout/DashboardLayout";
 import { useSupportUnread } from "@core/context/SupportUnreadContext";
+import { useAuth } from "@core/context/AuthContext";
 import {
   LayoutDashboard,
   Tag,
@@ -21,6 +22,8 @@ import {
   Sparkles,
   User,
   Briefcase,
+  Shield,
+  MapPin,
 } from "lucide-react";
 
 const Dashboard = React.lazy(() => import("../pages/Dashboard"));
@@ -69,6 +72,7 @@ const CustomerManagement = React.lazy(
 const CustomerDetail = React.lazy(() => import("../pages/CustomerDetail"));
 const ReferralsAndSubscriptions = React.lazy(() => import("../pages/ReferralsAndSubscriptions"));
 const UserManagement = React.lazy(() => import("../pages/UserManagement"));
+const ZoneManagement = React.lazy(() => import("../pages/ZoneManagement"));
 const Profile = React.lazy(() => import("@/pages/Profile"));
 const FAQManagement = React.lazy(() => import("../pages/FAQManagement"));
 const OrdersList = React.lazy(() => import("../pages/OrdersList"));
@@ -187,6 +191,18 @@ const navItems = [
     color: "green",
   },
   { label: "Customers", path: "/admin/customers", icon: Users, color: "sky" },
+  {
+    label: "Sub-Admins",
+    path: "/admin/users",
+    icon: Shield,
+    color: "indigo",
+  },
+  {
+    label: "Zones",
+    path: "/admin/zones",
+    icon: MapPin,
+    color: "rose",
+  },
   { label: "Referrals & Plans", path: "/admin/referrals-plans", icon: Sparkles, color: "amber" },
   { label: "FAQs", path: "/admin/faqs", icon: HelpCircle, color: "pink" },
   {
@@ -230,68 +246,90 @@ const BillingCharges = React.lazy(() => import("../pages/BillingCharges"));
 
 const AdminRoutes = () => {
   const { totalUnread } = useSupportUnread();
+  const { user } = useAuth();
+
+  const SubadminRoute = React.useCallback(({ permission, children }) => {
+    if (user?.role === "sub-admin") {
+      const allowed = Array.isArray(user.allowedPermissions) && user.allowedPermissions.includes(permission);
+      if (!allowed) {
+        return <Navigate to="/admin/profile" replace />;
+      }
+    }
+    return children;
+  }, [user]);
 
   const navItemsWithBadges = React.useMemo(() => {
     const count = Number.isFinite(totalUnread) ? totalUnread : 0;
-    if (count <= 0) return navItems;
-    return navItems.map((item) => {
+    let filteredItems = navItems;
+
+    if (user?.role === "sub-admin") {
+      const allowedPerms = Array.isArray(user.allowedPermissions) ? user.allowedPermissions : [];
+      filteredItems = navItems.filter(item => {
+        if (item.label === "My Profile") return true;
+        return allowedPerms.includes(item.label);
+      });
+    }
+
+    if (count <= 0) return filteredItems;
+    return filteredItems.map((item) => {
       if (item?.label !== "Customer Support") return item;
       return { ...item, badgeCount: count };
     });
-  }, [totalUnread]);
+  }, [totalUnread, user]);
 
   return (
     <DashboardLayout navItems={navItemsWithBadges} title="Admin Center">
       <Routes>
-        <Route path="/" element={<Dashboard />} />
-        <Route path="/users" element={<UserManagement />} />
+        <Route path="/" element={<SubadminRoute permission="Dashboard"><Dashboard /></SubadminRoute>} />
+        <Route path="/users" element={<SubadminRoute permission="Sub-Admins"><UserManagement /></SubadminRoute>} />
+        <Route path="/zones" element={<SubadminRoute permission="Zones"><ZoneManagement /></SubadminRoute>} />
         <Route path="/profile" element={<AdminProfile />} />
         {/* Lazy routes for new sections */}
         <Route
           path="/categories"
           element={<Navigate to="/admin/categories/header" replace />}
         />
-        <Route path="/categories/header" element={<HeaderCategories />} />
-        <Route path="/categories/level2" element={<Level2Categories />} />
-        <Route path="/categories/sub" element={<SubCategories />} />
-        <Route path="/categories/hierarchy" element={<CategoryHierarchy />} />
-        <Route path="/products" element={<ProductManagement />} />
-        <Route path="/sellers/active" element={<ActiveSellers />} />
-        <Route path="/sellers/active/:id" element={<SellerDetail />} />
-        <Route path="/support-tickets" element={<SupportTickets />} />
-        <Route path="/moderation" element={<ReviewModeration />} />
-        <Route path="/experience-studio" element={<ContentManager />} />
-        <Route path="/hero-categories" element={<HeroCategoriesPerPage />} />
-        <Route path="/notifications" element={<NotificationComposer />} />
-        <Route path="/offers" element={<OffersManagement />} />
-        <Route path="/offer-sections" element={<OfferSectionsManagement />} />
-        <Route path="/shop-by-store" element={<ShopByStoreManagement />} />
-        <Route path="/coupons" element={<CouponManagement />} />
-        <Route path="/sellers/pending" element={<PendingSellers />} />
-        <Route path="/seller-locations" element={<SellerLocations />} />
-        <Route path="/delivery-boys/active" element={<ActiveDeliveryBoys />} />
+        <Route path="/categories/header" element={<SubadminRoute permission="Categories"><HeaderCategories /></SubadminRoute>} />
+        <Route path="/categories/level2" element={<SubadminRoute permission="Categories"><Level2Categories /></SubadminRoute>} />
+        <Route path="/categories/sub" element={<SubadminRoute permission="Categories"><SubCategories /></SubadminRoute>} />
+        <Route path="/categories/hierarchy" element={<SubadminRoute permission="Categories"><CategoryHierarchy /></SubadminRoute>} />
+        <Route path="/products" element={<SubadminRoute permission="Products"><ProductManagement /></SubadminRoute>} />
+        <Route path="/sellers/active" element={<SubadminRoute permission="Sellers"><ActiveSellers /></SubadminRoute>} />
+        <Route path="/sellers/active/:id" element={<SubadminRoute permission="Sellers"><SellerDetail /></SubadminRoute>} />
+        <Route path="/support-tickets" element={<SubadminRoute permission="Customer Support"><SupportTickets /></SubadminRoute>} />
+        <Route path="/moderation" element={<SubadminRoute permission="Customer Support"><ReviewModeration /></SubadminRoute>} />
+        <Route path="/experience-studio" element={<SubadminRoute permission="Marketing Tools"><ContentManager /></SubadminRoute>} />
+        <Route path="/hero-categories" element={<SubadminRoute permission="Marketing Tools"><HeroCategoriesPerPage /></SubadminRoute>} />
+        <Route path="/notifications" element={<SubadminRoute permission="Marketing Tools"><NotificationComposer /></SubadminRoute>} />
+        <Route path="/offers" element={<SubadminRoute permission="Marketing Tools"><OffersManagement /></SubadminRoute>} />
+        <Route path="/offer-sections" element={<SubadminRoute permission="Marketing Tools"><OfferSectionsManagement /></SubadminRoute>} />
+        <Route path="/shop-by-store" element={<SubadminRoute permission="Marketing Tools"><ShopByStoreManagement /></SubadminRoute>} />
+        <Route path="/coupons" element={<SubadminRoute permission="Marketing Tools"><CouponManagement /></SubadminRoute>} />
+        <Route path="/sellers/pending" element={<SubadminRoute permission="Sellers"><PendingSellers /></SubadminRoute>} />
+        <Route path="/seller-locations" element={<SubadminRoute permission="Sellers"><SellerLocations /></SubadminRoute>} />
+        <Route path="/delivery-boys/active" element={<SubadminRoute permission="Delivery Drivers"><ActiveDeliveryBoys /></SubadminRoute>} />
         <Route
           path="/delivery-boys/pending"
-          element={<PendingDeliveryBoys />}
+          element={<SubadminRoute permission="Delivery Drivers"><PendingDeliveryBoys /></SubadminRoute>}
         />
-        <Route path="/tracking" element={<FleetTracking />} />
-        <Route path="/delivery-funds" element={<DeliveryFunds />} />
-        <Route path="/wallet" element={<AdminWallet />} />
-        <Route path="/withdrawals" element={<WithdrawalRequests />} />
-        <Route path="/seller-transactions" element={<SellerTransactions />} />
-        <Route path="/cash-collection" element={<CashCollection />} />
-        <Route path="/customers" element={<CustomerManagement />} />
-        <Route path="/customers/:id" element={<CustomerDetail />} />
-        <Route path="/referrals-plans" element={<ReferralsAndSubscriptions />} />
-        <Route path="/faqs" element={<FAQManagement />} />
-        <Route path="/orders/:status" element={<OrdersList />} />
-        <Route path="/orders/view/:orderId" element={<OrderDetail />} />
-        <Route path="/returns" element={<Returns />} />
-        <Route path="/billing" element={<BillingCharges />} />
-        <Route path="/settings" element={<AdminSettings />} />
-        <Route path="/env" element={<EnvSettings />} />
-        <Route path="/plans" element={<PlanManagement />} />
-        <Route path="/professional-directory" element={<ProfessionalAdsManagement />} />
+        <Route path="/tracking" element={<SubadminRoute permission="Delivery Drivers"><FleetTracking /></SubadminRoute>} />
+        <Route path="/delivery-funds" element={<SubadminRoute permission="Delivery Drivers"><DeliveryFunds /></SubadminRoute>} />
+        <Route path="/wallet" element={<SubadminRoute permission="Wallet"><AdminWallet /></SubadminRoute>} />
+        <Route path="/withdrawals" element={<SubadminRoute permission="Money Requests"><WithdrawalRequests /></SubadminRoute>} />
+        <Route path="/seller-transactions" element={<SubadminRoute permission="Seller Payments"><SellerTransactions /></SubadminRoute>} />
+        <Route path="/cash-collection" element={<SubadminRoute permission="Collect Cash"><CashCollection /></SubadminRoute>} />
+        <Route path="/customers" element={<SubadminRoute permission="Customers"><CustomerManagement /></SubadminRoute>} />
+        <Route path="/customers/:id" element={<SubadminRoute permission="Customers"><CustomerDetail /></SubadminRoute>} />
+        <Route path="/referrals-plans" element={<SubadminRoute permission="Referrals & Plans"><ReferralsAndSubscriptions /></SubadminRoute>} />
+        <Route path="/faqs" element={<SubadminRoute permission="FAQs"><FAQManagement /></SubadminRoute>} />
+        <Route path="/orders/:status" element={<SubadminRoute permission="Orders"><OrdersList /></SubadminRoute>} />
+        <Route path="/orders/view/:orderId" element={<SubadminRoute permission="Orders"><OrderDetail /></SubadminRoute>} />
+        <Route path="/returns" element={<SubadminRoute permission="Orders"><Returns /></SubadminRoute>} />
+        <Route path="/billing" element={<SubadminRoute permission="Fees & Charges"><BillingCharges /></SubadminRoute>} />
+        <Route path="/settings" element={<SubadminRoute permission="Settings"><AdminSettings /></SubadminRoute>} />
+        <Route path="/env" element={<SubadminRoute permission="System Settings"><EnvSettings /></SubadminRoute>} />
+        <Route path="/plans" element={<SubadminRoute permission="Subscription Plans"><PlanManagement /></SubadminRoute>} />
+        <Route path="/professional-directory" element={<SubadminRoute permission="Professional Directory"><ProfessionalAdsManagement /></SubadminRoute>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </DashboardLayout>

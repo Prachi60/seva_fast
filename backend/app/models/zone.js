@@ -32,6 +32,16 @@ const zoneSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+zoneSchema.pre("validate", function (next) {
+  if (
+    this.coordinates &&
+    (!this.coordinates.coordinates || this.coordinates.coordinates.length === 0)
+  ) {
+    this.coordinates = undefined;
+  }
+  next();
+});
+
 // Geo-index for spatial queries
 zoneSchema.index({ coordinates: "2dsphere" });
 

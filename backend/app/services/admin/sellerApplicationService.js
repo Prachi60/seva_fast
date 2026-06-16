@@ -11,6 +11,7 @@ export async function getPendingSellerApplications({
   page,
   limit,
   skip,
+  assignedZones,
 }) {
   const normalizedStatus = String(status || "pending").trim().toLowerCase();
   let baseStatusQuery = { isVerified: { $ne: true } };
@@ -32,6 +33,9 @@ export async function getPendingSellerApplications({
   }
 
   const conditions = [baseStatusQuery];
+  if (assignedZones && assignedZones.length > 0) {
+    conditions.push({ zoneId: { $in: assignedZones } });
+  }
   const search = String(q || "").trim();
   if (search) {
     const regex = new RegExp(escapeRegExp(search), "i");
@@ -48,6 +52,17 @@ export async function getPendingSellerApplications({
 
   const query = conditions.length > 1 ? { $and: conditions } : conditions[0];
 
+  const statsQuery = {
+    isVerified: { $ne: true },
+    $or: [
+      { applicationStatus: "pending" },
+      { applicationStatus: { $exists: false } },
+    ],
+  };
+  if (assignedZones && assignedZones.length > 0) {
+    statsQuery.zoneId = { $in: assignedZones };
+  }
+
   const [sellers, total, allPendingForStats] = await Promise.all([
     Seller.find(query)
       .sort({ createdAt: -1 })
@@ -55,13 +70,7 @@ export async function getPendingSellerApplications({
       .limit(limit)
       .lean(),
     Seller.countDocuments(query),
-    Seller.find({
-      isVerified: { $ne: true },
-      $or: [
-        { applicationStatus: "pending" },
-        { applicationStatus: { $exists: false } },
-      ],
-    })
+    Seller.find(statsQuery)
       .select("address documents createdAt")
       .lean(),
   ]);
