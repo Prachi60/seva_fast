@@ -63,6 +63,14 @@ const ALLOWED_KEYS = [
   "siteCashbackPercent",
   "otherMaintenancePercent",
   "affiliateMarketingPercent",
+  "professionalAdListingFee",
+  "professionalAdListingFeePhoto",
+  "professionalAdListingFeeVideo",
+  "platformAdFeePhoto",
+  "platformAdFeeVideo",
+  "platformAdListingFee",
+  "professionalAdValidityDays",
+  "professionalAdSearchRadiusKm",
 ];
 
 function flattenForMongoSet(prefix, value, target) {
@@ -153,6 +161,14 @@ const updateSettingsSchema = Joi.object({
   siteCashbackPercent: Joi.number().min(0).max(100),
   otherMaintenancePercent: Joi.number().min(0).max(100),
   affiliateMarketingPercent: Joi.number().min(0).max(100),
+  professionalAdListingFee: Joi.number().min(0),
+  professionalAdListingFeePhoto: Joi.number().min(0),
+  professionalAdListingFeeVideo: Joi.number().min(0),
+  platformAdFeePhoto: Joi.number().min(0),
+  platformAdFeeVideo: Joi.number().min(0),
+  platformAdListingFee: Joi.number().min(0),
+  professionalAdValidityDays: Joi.number().min(1),
+  professionalAdSearchRadiusKm: Joi.number().min(1),
 }).unknown(false);
 
 /**
@@ -173,7 +189,7 @@ export const getPublicSettings = async (req, res) => {
       async () => {
         const existing = await Setting.findOne(filter)
           .select(
-            "appName supportEmail supportPhone currencySymbol currencyCode timezone logoUrl faviconUrl primaryColor secondaryColor returnDeliveryCommission deliveryPricingMode pricingMode customerBaseDeliveryFee riderBasePayout baseDeliveryCharge baseDistanceCapacityKm incrementalKmSurcharge deliveryPartnerRatePerKm fleetCommissionRatePerKm fixedDeliveryFee handlingFeeStrategy codEnabled onlineEnabled lowStockAlertsEnabled productApproval adminCommissionPercent technicalChargePercent subAdminCommissionPercent fieldWorkerCommissionPercent goldCardMemberDiscountPercent silverCardMemberDiscountPercent bronzeCardMemberDiscountPercent directSlabCommissionPercent deductShippingBeforeCommission advertiseChargePercent siteCashbackPercent otherMaintenancePercent affiliateMarketingPercent createdAt",
+            "appName supportEmail supportPhone currencySymbol currencyCode timezone logoUrl faviconUrl primaryColor secondaryColor returnDeliveryCommission deliveryPricingMode pricingMode customerBaseDeliveryFee riderBasePayout baseDeliveryCharge baseDistanceCapacityKm incrementalKmSurcharge deliveryPartnerRatePerKm fleetCommissionRatePerKm fixedDeliveryFee handlingFeeStrategy codEnabled onlineEnabled lowStockAlertsEnabled productApproval adminCommissionPercent technicalChargePercent subAdminCommissionPercent fieldWorkerCommissionPercent goldCardMemberDiscountPercent silverCardMemberDiscountPercent bronzeCardMemberDiscountPercent directSlabCommissionPercent deductShippingBeforeCommission advertiseChargePercent siteCashbackPercent otherMaintenancePercent affiliateMarketingPercent professionalAdListingFee professionalAdListingFeePhoto professionalAdListingFeeVideo platformAdFeePhoto platformAdFeeVideo platformAdListingFee professionalAdValidityDays professionalAdSearchRadiusKm createdAt",
           )
           .lean();
         return existing || null;

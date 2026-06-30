@@ -175,7 +175,7 @@ export async function sendSmsOtp({ mobile, userType, purpose, ipAddress = "unkno
 
   let otp = generateOTP(getOtpLength());
   if (normalizedMobile === "6268423925" || normalizedMobile === "9111966732") {
-    otp = "1234";
+    otp = "123456";
   }
   const expiresAt = new Date(Date.now() + getExpiryMinutes() * 60 * 1000);
 

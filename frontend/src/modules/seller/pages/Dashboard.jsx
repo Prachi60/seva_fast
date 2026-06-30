@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import Card from "@shared/components/ui/Card";
 import PageHeader from "@shared/components/ui/PageHeader";
@@ -63,6 +64,18 @@ const Dashboard = () => {
   useEffect(() => {
     fetchDeliveryBoys();
   }, []);
+
+  useEffect(() => {
+    if (!isOrderModalOpen) return undefined;
+    const prevBodyOverflow = document.body.style.overflow;
+    const prevHtmlOverflow = document.documentElement.style.overflow;
+    document.body.style.overflow = "hidden";
+    document.documentElement.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prevBodyOverflow;
+      document.documentElement.style.overflow = prevHtmlOverflow;
+    };
+  }, [isOrderModalOpen]);
 
   useEffect(() => {
     let cancelled = false;
@@ -525,9 +538,10 @@ const Dashboard = () => {
         </div>
       </Card>
 
+      {createPortal(
       <AnimatePresence>
         {isOrderModalOpen && selectedOrder && (
-          <div className="fixed inset-0 z-[100] flex items-stretch sm:items-center justify-center p-3 sm:p-6 lg:p-12">
+          <div className="fixed inset-0 z-[250] flex items-stretch sm:items-center justify-center p-3 sm:p-6 lg:p-12 overflow-hidden overscroll-none">
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -802,7 +816,9 @@ const Dashboard = () => {
             </motion.div>
           </div>
         )}
-      </AnimatePresence>
+      </AnimatePresence>,
+      document.body
+      )}
     </div>
   );
 };

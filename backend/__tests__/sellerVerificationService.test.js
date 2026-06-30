@@ -153,7 +153,7 @@ describe("sellerVerificationService", () => {
     const verification = await verifySellerOtpCode({
       channel: "email",
       rawValue: "seller@example.com",
-      otp: "1234",
+      otp: "123400",
       ipAddress: "127.0.0.1",
     });
 
@@ -184,7 +184,7 @@ describe("sellerVerificationService", () => {
     const verification = await verifySellerOtpCode({
       channel: "email",
       rawValue: "seller@example.com",
-      otp: "1234",
+      otp: "123400",
       ipAddress: "127.0.0.1",
     });
 

@@ -56,6 +56,11 @@ OrderMock.findOne = mockOrderFindOne;
 jest.unstable_mockModule("mongoose", () => ({
   default: {
     startSession: mockStartSession,
+    Schema: Object.assign(
+      function () { return { index: jest.fn(), pre: jest.fn() }; },
+      { Types: { ObjectId: "ObjectId" } }
+    ),
+    model: jest.fn().mockReturnValue({}),
   },
 }));
 
@@ -172,6 +177,7 @@ describe("Phase 0 atomic order placement", () => {
     });
     mockCartFindOne.mockResolvedValue(null);
     mockCustomerFindById.mockReturnValue({
+      populate: jest.fn().mockReturnThis(),
       session: jest.fn().mockResolvedValue({
         _id: "67f0000000000000000000c1",
         walletBalance: 0,

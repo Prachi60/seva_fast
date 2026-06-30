@@ -38,6 +38,7 @@ import PromoMarquee from "../components/home/PromoMarquee";
 import QuickCategorySlider from "../components/home/QuickCategorySlider";
 import LowestPriceSection from "../components/home/LowestPriceSection";
 import OfferSections from "../components/home/OfferSections";
+import PlatformBannerSlider from "../components/home/PlatformBannerSlider";
 
 const DEFAULT_CATEGORY_THEME = {
   gradient: "linear-gradient(to bottom, var(--primary), var(--brand-400))",
@@ -197,6 +198,7 @@ const Home = () => {
   const [products, setProducts] = useState(() => cachedHomePageData?.products || []);
   const productsRef = useRef(cachedHomePageData?.products || []);
   const [quickCategories, setQuickCategories] = useState(() => cachedHomePageData?.quickCategories || []);
+  const [activePlatformAds, setActivePlatformAds] = useState([]);
   const [isLoading, setIsLoading] = useState(() => !cachedHomePageData);
   const [experienceSections, setExperienceSections] = useState(() => cachedHomePageData?.experienceSections || []);
   const [headerSections, setHeaderSections] = useState([]);
@@ -266,7 +268,7 @@ const Home = () => {
       }
       const [catRes, prodRes, expRes, sectionsRes] = await Promise.all([
         customerApi.getCategories(),
-        hasValidLocation ? customerApi.getProducts(productParams) : Promise.resolve({ data: { success: true, result: { items: [] } } }),
+        customerApi.getProducts(productParams),
         customerApi.getExperienceSections({ pageType: "home" }).catch(() => null),
         hasValidLocation ? customerApi.getOfferSections({ lat: currentLocation.latitude, lng: currentLocation.longitude }).catch(() => ({ data: {} })) : Promise.resolve({ data: { results: [] } }),
       ]);
@@ -310,6 +312,14 @@ const Home = () => {
       if (expRes?.data?.success) nextHomeData.experienceSections = Array.isArray(expRes.data.result || expRes.data.results) ? (expRes.data.result || expRes.data.results) : [];
       const sectionsList = sectionsRes?.data?.results || sectionsRes?.data?.result || sectionsRes?.data;
       nextHomeData.offerSections = Array.isArray(sectionsList) ? sectionsList : [];
+      try {
+        const platRes = await customerApi.getActivePlatformAds({ city: currentLocation?.city || undefined });
+        if (platRes.data?.success) {
+          setActivePlatformAds(platRes.data.result || platRes.data.results || []);
+        }
+      } catch (e) {
+        console.error("Failed to load platform ads", e);
+      }
       applyHomePageData(nextHomeData, { cacheKey });
     } catch (error) { console.error("Error:", error); } finally { setIsLoading(false); }
   };
@@ -423,25 +433,30 @@ const Home = () => {
         </div>
       ) : (
         <>
-          <motion.div ref={heroRef} className="block md:hidden will-change-transform" style={isMobile ? { opacity: 1 } : { opacity, y, scale, pointerEvents }}>
-            <div className="relative w-full overflow-hidden">
-              {heroConfig.banners?.items?.length ? (
-                <ExperienceBannerCarousel section={{ title: "" }} items={heroConfig.banners.items} fullWidth edgeToEdge />
-              ) : (
-                <div className="w-full h-[190px] bg-[#ecfeff] p-6 relative overflow-hidden flex items-center border-y border-primary/10 shadow-sm">
-                  <div className="relative z-10 w-3/5 flex flex-col items-start gap-2">
-                    <h4 className="text-2xl font-black text-[#1A1A1A] tracking-tight">Get <span className="text-primary">Products</span></h4>
-                    <button className="bg-[#FF1E56] text-white px-6 py-2.5 rounded-2xl font-black text-xs tracking-wide">Order now</button>
+            <motion.div ref={heroRef} className="block md:hidden will-change-transform" style={isMobile ? { opacity: 1 } : { opacity, y, scale, pointerEvents }}>
+              <div className="relative w-full overflow-hidden">
+                {heroConfig.banners?.items?.length ? (
+                  <ExperienceBannerCarousel section={{ title: "" }} items={heroConfig.banners.items} fullWidth edgeToEdge />
+                ) : (
+                  <div className="w-full h-[190px] bg-[#ecfeff] p-6 relative overflow-hidden flex items-center border-y border-primary/10 shadow-sm">
+                    <div className="relative z-10 w-3/5 flex flex-col items-start gap-2">
+                      <h4 className="text-2xl font-black text-[#1A1A1A] tracking-tight">Get <span className="text-primary">Products</span></h4>
+                      <button className="bg-[#FF1E56] text-white px-6 py-2.5 rounded-2xl font-black text-xs tracking-wide">Order now</button>
+                    </div>
+                    <div className="absolute top-0 right-0 w-24 h-24 bg-primary/5 rounded-full blur-2xl -mt-12 -mr-12" />
                   </div>
-                  <div className="absolute top-0 right-0 w-24 h-24 bg-primary/5 rounded-full blur-2xl -mt-12 -mr-12" />
-                </div>
-              )}
-            </div>
-          </motion.div>
+                )}
+              </div>
+            </motion.div>
 
           <PromoMarquee />
           <QuickCategorySlider categories={effectiveQuickCategories} onCategoryClick={(id) => navigate(`/category/${id}`)} />
           <LowestPriceSection products={products} onSeeAll={() => navigate("/category/all")} />
+          {activePlatformAds && activePlatformAds.length > 0 && (
+            <div className="pt-4 pb-4">
+              <PlatformBannerSlider ads={activePlatformAds} />
+            </div>
+          )}
           <OfferSections sections={offerSections} noServiceData={noServiceData} />
 
           {sectionsForRenderer.length > 0 && (

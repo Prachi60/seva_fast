@@ -541,7 +541,7 @@ const ActiveSellers = () => {
 
       <AnimatePresence>
         {selectedSeller && (
-          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-6">
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-6" data-lenis-prevent="true">
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -598,8 +598,8 @@ const ActiveSellers = () => {
                 </button>
               </div>
 
-              <div className="flex-1 overflow-y-auto custom-scrollbar bg-white">
-                <div className="grid grid-cols-1 lg:grid-cols-12">
+              <div className="flex-1 overflow-y-auto custom-scrollbar bg-white min-h-0 overscroll-contain">
+                <div className="grid grid-cols-1 lg:grid-cols-12 min-h-full">
                 <div className="lg:col-span-4 bg-slate-50 p-5 border-r border-slate-100">
                   <div className="space-y-5">
                     <div className="space-y-3">
@@ -648,6 +648,52 @@ const ActiveSellers = () => {
                         <div className="flex items-center justify-between text-xs font-bold text-slate-600 mt-3">
                           <span>Last order</span>
                           <span>{selectedSeller.lastOrderLabel || "No orders yet"}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">
+                        Custom Photo Orders
+                      </p>
+                      <div className="p-4 bg-white rounded-2xl ring-1 ring-slate-100 space-y-3">
+                        <div className="flex items-center justify-between text-xs font-bold text-slate-600">
+                          <span>Accepts Photo Orders</span>
+                          <span className={selectedSeller.acceptsPhotoOrders ? "text-emerald-600" : "text-slate-400"}>
+                            {selectedSeller.acceptsPhotoOrders ? "Yes" : "No"}
+                          </span>
+                        </div>
+                        <div className="flex bg-slate-50 rounded-xl p-1 border border-slate-200">
+                            <button 
+                                onClick={async () => {
+                                  try {
+                                    await adminApi.updateSellerDetails(selectedSeller.id || selectedSeller._id, { acceptsPhotoOrders: true });
+                                    setSelectedSeller(prev => ({ ...prev, acceptsPhotoOrders: true }));
+                                    toast.success("Seller enabled for custom photo orders");
+                                    setRefreshTick(t => t + 1);
+                                  } catch (e) {
+                                    toast.error("Failed to update status");
+                                  }
+                                }}
+                                className={cn("flex-1 py-1.5 text-[10px] font-bold rounded-lg transition-all", selectedSeller.acceptsPhotoOrders ? "bg-slate-900 text-white shadow-sm" : "text-slate-500 hover:bg-slate-200")}
+                            >
+                                Enable
+                            </button>
+                            <button 
+                                onClick={async () => {
+                                  try {
+                                    await adminApi.updateSellerDetails(selectedSeller.id || selectedSeller._id, { acceptsPhotoOrders: false });
+                                    setSelectedSeller(prev => ({ ...prev, acceptsPhotoOrders: false }));
+                                    toast.success("Seller disabled for custom photo orders");
+                                    setRefreshTick(t => t + 1);
+                                  } catch (e) {
+                                    toast.error("Failed to update status");
+                                  }
+                                }}
+                                className={cn("flex-1 py-1.5 text-[10px] font-bold rounded-lg transition-all", !selectedSeller.acceptsPhotoOrders ? "bg-slate-900 text-white shadow-sm" : "text-slate-500 hover:bg-slate-200")}
+                            >
+                                Disable
+                            </button>
                         </div>
                       </div>
                     </div>
@@ -772,6 +818,29 @@ const ActiveSellers = () => {
                                     }}
                                     className="w-full bg-white border border-amber-200 rounded-lg px-3 py-1.5 text-xs font-bold outline-none focus:ring-2 focus:ring-amber-500/20"
                                 />
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <span className="text-xs font-bold text-amber-900 whitespace-nowrap">Interval:</span>
+                                <select 
+                                    value={selectedSeller.oneTimeChargeInterval || 'monthly'}
+                                    onChange={async (e) => {
+                                        const interval = e.target.value;
+                                        try {
+                                            await adminApi.updateSellerDetails(selectedSeller.id || selectedSeller._id, { oneTimeChargeInterval: interval });
+                                            setSelectedSeller(prev => ({ ...prev, oneTimeChargeInterval: interval }));
+                                            toast.success("Interval saved successfully!");
+                                            setRefreshTick(t => t + 1);
+                                        } catch (err) {
+                                            toast.error("Failed to save interval");
+                                        }
+                                    }}
+                                    className="w-full bg-white border border-amber-200 rounded-lg px-3 py-1.5 text-xs font-bold outline-none focus:ring-2 focus:ring-amber-500/20 cursor-pointer"
+                                >
+                                    <option value="monthly">Monthly</option>
+                                    <option value="quarterly">Quarterly</option>
+                                    <option value="half_yearly">Half Yearly</option>
+                                    <option value="yearly">Yearly</option>
+                                </select>
                             </div>
                             <div className="flex items-center justify-between pt-2 border-t border-amber-200/50">
                                 <p className="text-[10px] font-bold text-amber-900 uppercase tracking-widest">0% Commission</p>

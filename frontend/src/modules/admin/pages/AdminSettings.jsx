@@ -76,6 +76,14 @@ const AdminSettings = () => {
             sellerCreateRequiresApproval: false,
             sellerEditRequiresApproval: false,
         },
+        professionalAdListingFee: 499,
+        professionalAdListingFeePhoto: 499,
+        professionalAdListingFeeVideo: 999,
+        platformAdFeePhoto: 999,
+        platformAdFeeVideo: 1999,
+        platformAdListingFee: 999,
+        professionalAdValidityDays: 30,
+        professionalAdSearchRadiusKm: 15,
     });
 
     useEffect(() => {
@@ -107,6 +115,12 @@ const AdminSettings = () => {
             setIsSaving(true);
             const payload = {
                 ...settings,
+                professionalAdListingFee: settings.professionalAdListingFee,
+                professionalAdListingFeePhoto: settings.professionalAdListingFee,
+                professionalAdListingFeeVideo: settings.professionalAdListingFee,
+                platformAdListingFee: settings.platformAdListingFee,
+                platformAdFeePhoto: settings.platformAdListingFee,
+                platformAdFeeVideo: settings.platformAdListingFee,
                 keywords: Array.isArray(settings.keywords) ? settings.keywords : (settings.metaKeywords ? settings.metaKeywords.split(',').map(k => k.trim()).filter(Boolean) : []),
             };
             const res = await adminApi.updateSettings(payload);
@@ -199,6 +213,7 @@ const AdminSettings = () => {
         { id: 'general', label: 'General', icon: Settings },
         { id: 'branding', label: 'Branding', icon: Globe },
         { id: 'legal', label: 'Legal & Contact', icon: Building2 },
+        { id: 'pricing', label: 'Advertising Pricing', icon: CreditCard },
         { id: 'social', label: 'Social & Apps', icon: Share2 },
         { id: 'seo', label: 'SEO & Meta', icon: Search },
     ];
@@ -559,6 +574,80 @@ const AdminSettings = () => {
                                 </div>
 
                                 {/* Return delivery commission input moved to Fees & Charges → Delivery Fee Settings */}
+                            </div>
+                        </Card>
+                    )}
+
+                    {/* Advertising Pricing Settings */}
+                    {activeTab === 'pricing' && (
+                        <Card className="border-none shadow-xl ring-1 ring-slate-100 bg-white rounded-xl overflow-hidden">
+                            <div className="p-6 border-b border-slate-50 bg-slate-50/30">
+                                <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest flex items-center gap-3">
+                                    Advertising Pricing & Configuration
+                                </h3>
+                            </div>
+                            <div className="p-8 space-y-8">
+                                <div className="space-y-4">
+                                    <h4 className="text-xs font-black uppercase tracking-widest text-brand-600">Global Ad Pricing Rules</h4>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div className="space-y-3">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Professional Ad Price (₹)</label>
+                                            <input
+                                                type="number"
+                                                value={settings.professionalAdListingFee}
+                                                onChange={(e) => {
+                                                    const val = Number(e.target.value);
+                                                    handleInputChange('professionalAdListingFee', val);
+                                                    handleInputChange('professionalAdListingFeePhoto', val);
+                                                    handleInputChange('professionalAdListingFeeVideo', val);
+                                                }}
+                                                className="w-full px-5 py-4 bg-slate-50 border-none rounded-2xl text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-brand-500/10 transition-all"
+                                                min={0}
+                                            />
+                                        </div>
+                                        <div className="space-y-3">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Platform Banner Ad Price (₹)</label>
+                                            <input
+                                                type="number"
+                                                value={settings.platformAdListingFee}
+                                                onChange={(e) => {
+                                                    const val = Number(e.target.value);
+                                                    handleInputChange('platformAdListingFee', val);
+                                                    handleInputChange('platformAdFeePhoto', val);
+                                                    handleInputChange('platformAdFeeVideo', val);
+                                                }}
+                                                className="w-full px-5 py-4 bg-slate-50 border-none rounded-2xl text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-brand-500/10 transition-all"
+                                                min={0}
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="pt-6 border-t border-slate-100 space-y-4">
+                                    <h4 className="text-xs font-black uppercase tracking-widest text-brand-600">Listing Settings</h4>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div className="space-y-3">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Search Radius (KM)</label>
+                                            <input
+                                                type="number"
+                                                value={settings.professionalAdSearchRadiusKm}
+                                                onChange={(e) => handleInputChange('professionalAdSearchRadiusKm', Number(e.target.value))}
+                                                className="w-full px-5 py-4 bg-slate-50 border-none rounded-2xl text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-brand-500/10 transition-all"
+                                                min={1}
+                                            />
+                                        </div>
+                                        <div className="space-y-3">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Ad Validity Duration (Days)</label>
+                                            <input
+                                                type="number"
+                                                value={settings.professionalAdValidityDays}
+                                                onChange={(e) => handleInputChange('professionalAdValidityDays', Number(e.target.value))}
+                                                className="w-full px-5 py-4 bg-slate-50 border-none rounded-2xl text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-brand-500/10 transition-all"
+                                                min={1}
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </Card>
                     )}

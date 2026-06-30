@@ -163,4 +163,17 @@ export const customerApi = {
   updateProfessionalProfile: (data) => axiosInstance.put("/professionals/profile", data),
   updateProfessionalServices: (data) => axiosInstance.put("/professionals/profile/services", data),
   payProfessionalProfile: () => axiosInstance.post("/professionals/profile/pay"),
+  initiatePayProfessionalProfile: () => axiosInstance.post("/professionals/profile/pay/initiate"),
+  verifyPayProfessionalProfile: (data) => axiosInstance.post("/professionals/profile/pay/verify", data),
+  uploadMedia: (formData) => axiosInstance.post('/media/upload', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+  }),
+
+  createPlatformAd: (data) => axiosInstance.post("/professionals/platform-ads", data),
+  getMyPlatformAds: () => axiosInstance.get("/professionals/platform-ads"),
+  payPlatformAd: (id) => axiosInstance.post(`/professionals/platform-ads/${id}/pay`),
+  initiatePayPlatformAd: (id) => axiosInstance.post(`/professionals/platform-ads/${id}/pay/initiate`),
+  verifyPayPlatformAd: (id, data) => axiosInstance.post(`/professionals/platform-ads/${id}/pay/verify`, data),
+  getActivePlatformAds: (params) => axiosInstance.get("/professionals/platform-ads/active", { params }),
 };
+

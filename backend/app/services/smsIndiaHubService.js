@@ -7,7 +7,11 @@ function getSmsIndiaConfig() {
   return {
     apiKey: String(process.env.SMS_INDIA_HUB_API_KEY || "").trim(),
     senderId: String(process.env.SMS_INDIA_HUB_SENDER_ID || "").trim(),
-    dltTemplateId: String(process.env.SMS_INDIA_HUB_DLT_TEMPLATE_ID || "").trim(),
+    dltTemplateId: String(
+      process.env.SMS_INDIA_HUB_DLT_TEMPLATE_ID ||
+        process.env.SMS_INDIA_HUB_TEMPLATE_ID ||
+        "",
+    ).trim(),
     gatewayId: String(process.env.SMS_INDIA_HUB_GWID || "2").trim(),
     peId: String(process.env.SMS_INDIA_HUB_PE_ID || "").trim(),
     url: String(

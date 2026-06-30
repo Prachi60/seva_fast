@@ -53,40 +53,102 @@ const PlansPage = () => {
         setReferralModalOpen(true);
     };
 
-    const initiatePhonePe = async () => {
+    const loadRazorpayScript = () => {
+        return new Promise((resolve) => {
+            if (window.Razorpay) {
+                resolve(true);
+                return;
+            }
+            const script = document.createElement("script");
+            script.src = "https://checkout.razorpay.com/v1/checkout.js";
+            script.onload = () => resolve(true);
+            script.onerror = () => resolve(false);
+            document.body.appendChild(script);
+        });
+    };
+
+    const initiateRazorpay = async () => {
         if (!selectedPlan) return;
         if (!referralCode.trim()) {
             toast.error("Referral code is required to activate a plan.");
             return;
         }
-        setReferralModalOpen(false);
+        
         setProcessingPlanId(selectedPlan._id);
         
         try {
+            const isLoaded = await loadRazorpayScript();
+            if (!isLoaded) {
+                toast.error("Razorpay SDK failed to load. Are you online?");
+                setProcessingPlanId(null);
+                return;
+            }
+
             const initRes = await axiosInstance.post('/plans/subscribe/initiate', {
                 planId: selectedPlan._id,
                 referralCode: referralCode.trim() || undefined
             });
 
             if (initRes.data.result.success) {
-                toast.success("Plan activated successfully!");
-                if (refreshUser) {
-                    await refreshUser();
-                }
-                // The page will now re-render immediately with the active plan displaying.
+                const { orderId, amount, currency, referredBy, razorpayKey } = initRes.data.result;
+
+                const options = {
+                    key: razorpayKey,
+                    amount: amount,
+                    currency: currency,
+                    name: "Seva Fast",
+                    description: `Subscription: ${selectedPlan.name}`,
+                    order_id: orderId,
+                    handler: async function (response) {
+                        try {
+                            const verifyRes = await axiosInstance.post('/plans/subscribe/verify', {
+                                razorpay_order_id: response.razorpay_order_id,
+                                razorpay_payment_id: response.razorpay_payment_id,
+                                razorpay_signature: response.razorpay_signature,
+                                planId: selectedPlan._id,
+                                referredBy: referredBy
+                            });
+                            
+                            if (verifyRes.data.result) {
+                                toast.success("Plan activated successfully!");
+                                if (refreshUser) {
+                                    await refreshUser();
+                                }
+                            } else {
+                                toast.error("Payment verification failed");
+                            }
+                        } catch (err) {
+                            toast.error("Failed to verify payment");
+                        }
+                    },
+                    prefill: {
+                        name: user?.name || "Customer",
+                        contact: user?.phone || ""
+                    },
+                    theme: {
+                        color: "#0f172a"
+                    }
+                };
+                
+                const rzp = new window.Razorpay(options);
+                rzp.on('payment.failed', function (response){
+                    toast.error(response.error.description || "Payment failed");
+                });
+                setReferralModalOpen(false);
+                rzp.open();
             } else {
                 toast.error("Failed to activate plan");
+                setReferralModalOpen(false);
             }
         } catch (error) {
             toast.error(error.response?.data?.message || "Failed to initiate payment");
+            setReferralModalOpen(false);
         } finally {
             setProcessingPlanId(null);
         }
     };
 
-    const displayPlans = user?.currentPlan 
-        ? plans.filter(p => p._id === (user.currentPlan._id || user.currentPlan)) 
-        : plans;
+    const displayPlans = plans;
 
     return (
         <div className="min-h-screen bg-slate-50 pt-safe-top pb-safe-bottom font-['Outfit',_sans-serif]">
@@ -215,7 +277,7 @@ const PlansPage = () => {
                             />
 
                             <button 
-                                onClick={initiatePhonePe}
+                                onClick={initiateRazorpay}
                                 disabled={!referralCode.trim()}
                                 className="w-full py-4 bg-slate-900 text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-xl shadow-slate-200 transition-all active:scale-95 disabled:opacity-50 disabled:active:scale-100 flex items-center justify-center gap-2"
                             >

@@ -218,6 +218,26 @@ const settingSchema = new mongoose.Schema(
             type: Number,
             default: 499,
         },
+        professionalAdListingFeePhoto: {
+            type: Number,
+            default: 499,
+        },
+        professionalAdListingFeeVideo: {
+            type: Number,
+            default: 999,
+        },
+        platformAdFeePhoto: {
+            type: Number,
+            default: 999,
+        },
+        platformAdFeeVideo: {
+            type: Number,
+            default: 1999,
+        },
+        platformAdListingFee: {
+            type: Number,
+            default: 999,
+        },
         professionalAdValidityDays: {
             type: Number,
             default: 30,

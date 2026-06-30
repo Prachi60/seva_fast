@@ -1,9 +1,9 @@
-const MOCK_OTP = "1234";
+const MOCK_OTP = "123456";
 
 export const useRealSMS = () =>
   process.env.USE_REAL_SMS === "true" || process.env.USE_REAL_SMS === "1";
 
-const OTP_LENGTH = Math.max(4, parseInt(process.env.OTP_LENGTH || "4", 10));
+const OTP_LENGTH = Math.max(6, parseInt(process.env.OTP_LENGTH || "6", 10));
 
 function randomOtp(length) {
   const min = Math.pow(10, length - 1);

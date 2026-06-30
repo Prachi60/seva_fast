@@ -19,11 +19,14 @@ import {
     User,
     ChevronRight,
     Edit2,
-    X
+    X,
+    Upload
 } from 'lucide-react';
+import { useSettings } from '@core/context/SettingsContext';
 
 const ProfessionalProfilePanel = () => {
     const { showToast } = useToast();
+    const { settings } = useSettings();
     const [isLoading, setIsLoading] = useState(true);
     const [ad, setAd] = useState(null);
     const [categories, setCategories] = useState([]);
@@ -44,6 +47,36 @@ const ProfessionalProfilePanel = () => {
     const [lng, setLng] = useState('75.8577');
     const [isLocating, setIsLocating] = useState(false);
 
+    // Profile edit state
+    const [isEditingProfile, setIsEditingProfile] = useState(false);
+    const [editName, setEditName] = useState('');
+    const [editPhone, setEditPhone] = useState('');
+    const [editEmail, setEditEmail] = useState('');
+    const [editProfession, setEditProfession] = useState('');
+    const [editExperienceYears, setEditExperienceYears] = useState('');
+    const [editDescription, setEditDescription] = useState('');
+    const [editAddress, setEditAddress] = useState('');
+    const [editCity, setEditCity] = useState('');
+    const [editLat, setEditLat] = useState('22.7196');
+    const [editLng, setEditLng] = useState('75.8577');
+
+    // Navigation and tab states
+    const [activeTab, setActiveTab] = useState('directory'); // 'directory' or 'banners'
+    
+    // Platform Ads (Banners) State
+    const [platformAds, setPlatformAds] = useState([]);
+    const [isSubmittingPlatformAd, setIsSubmittingPlatformAd] = useState(false);
+    const [platTitle, setPlatTitle] = useState('');
+    const [platContent, setPlatContent] = useState('');
+    const [platMediaUrl, setPlatMediaUrl] = useState('');
+    const [platMediaType, setPlatMediaType] = useState('none');
+    const [platImageUrl, setPlatImageUrl] = useState('');
+    const [platVideoUrl, setPlatVideoUrl] = useState('');
+    const [activeMediaTab, setActiveMediaTab] = useState('image'); // 'image' or 'video'
+    const [platTargetUrl, setPlatTargetUrl] = useState('');
+    const [platCity, setPlatCity] = useState('');
+    const [isUploadingMedia, setIsUploadingMedia] = useState(false);
+
     // Categories edit state
     const [isEditingCategories, setIsEditingCategories] = useState(false);
     const [editCategoryIds, setEditCategoryIds] = useState([]);
@@ -55,6 +88,17 @@ const ProfessionalProfilePanel = () => {
     const [newServiceName, setNewServiceName] = useState('');
     const [newServicePrice, setNewServicePrice] = useState('');
     const [newServiceDesc, setNewServiceDesc] = useState('');
+
+    const loadPlatformAds = async () => {
+        try {
+            const res = await customerApi.getMyPlatformAds();
+            if (res.data?.success) {
+                setPlatformAds(res.data.result || res.data.results || []);
+            }
+        } catch (error) {
+            console.error("Failed to load platform ads", error);
+        }
+    };
 
     const loadProfile = async () => {
         try {
@@ -95,10 +139,11 @@ const ProfessionalProfilePanel = () => {
 
     useEffect(() => {
         loadProfile();
+        loadPlatformAds();
     }, []);
 
     useEffect(() => {
-        if (isEditingCategories || isConfirmingPayment) {
+        if (isEditingCategories || isConfirmingPayment || isEditingProfile || isSubmittingPlatformAd) {
             document.body.style.overflow = 'hidden';
             const navbars = document.querySelectorAll('.fixed.bottom-0');
             navbars.forEach(nav => {
@@ -118,7 +163,88 @@ const ProfessionalProfilePanel = () => {
                 nav.style.removeProperty('display');
             });
         };
-    }, [isEditingCategories, isConfirmingPayment]);
+    }, [isEditingCategories, isConfirmingPayment, isEditingProfile, isSubmittingPlatformAd]);
+
+    const handleUploadMediaFile = async (e, targetSetUrl, targetSetType) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const type = file.type.startsWith('video/') ? 'video' : 'image';
+
+        try {
+            setIsUploadingMedia(true);
+            const formData = new FormData();
+            formData.append('file', file);
+
+            const res = await customerApi.uploadMedia(formData);
+            if (res.data?.success && (res.data.result?.secureUrl || res.data.result?.url)) {
+                targetSetUrl(res.data.result.secureUrl || res.data.result.url);
+                targetSetType(type);
+                showToast('Media uploaded successfully', 'success');
+            } else if (res.data?.secureUrl || res.data?.url) {
+                targetSetUrl(res.data.secureUrl || res.data.url);
+                targetSetType(type);
+                showToast('Media uploaded successfully', 'success');
+            } else {
+                showToast('Failed to upload media', 'error');
+            }
+        } catch (error) {
+            console.error("Media upload error:", error, error.response?.data);
+            showToast(error.response?.data?.message || 'Error uploading media file', 'error');
+        } finally {
+            setIsUploadingMedia(false);
+        }
+    };
+
+    const handleOpenEditProfile = () => {
+        if (!ad) return;
+        setEditName(ad.name || '');
+        setEditPhone(ad.phone || '');
+        setEditEmail(ad.email || '');
+        setEditProfession(ad.profession || '');
+        setEditExperienceYears(ad.experienceYears || '0');
+        setEditDescription(ad.description || '');
+        setEditAddress(ad.address || '');
+        setEditCity(ad.city || '');
+        setEditLat(ad.location?.coordinates?.[1] || '22.7196');
+        setEditLng(ad.location?.coordinates?.[0] || '75.8577');
+        setIsEditingProfile(true);
+    };
+
+    const handleUpdateProfileSubmit = async (e) => {
+        e.preventDefault();
+        if (!editName || !editPhone || !editProfession || !editDescription || !editAddress || !editCity) {
+            return showToast("Please fill all required fields", "error");
+        }
+        if (editPhone.length !== 10) {
+            return showToast("Phone number must be exactly 10 digits", "error");
+        }
+        try {
+            setIsLoading(true);
+            const payload = {
+                name: editName,
+                phone: editPhone,
+                email: editEmail,
+                profession: editProfession,
+                experienceYears: Number(editExperienceYears) || 0,
+                description: editDescription,
+                address: editAddress,
+                city: editCity,
+                lat: parseFloat(editLat) || 22.7196,
+                lng: parseFloat(editLng) || 75.8577
+            };
+            const res = await customerApi.updateProfessionalProfile(payload);
+            if (res.data?.success) {
+                showToast("Profile details updated successfully! Your listing is pending admin moderation.", "success");
+                setIsEditingProfile(false);
+                loadProfile();
+            }
+        } catch (error) {
+            showToast(error.response?.data?.message || "Failed to update profile", "error");
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
     const handleAutoDetectLocation = () => {
         if (!navigator.geolocation) {
@@ -168,7 +294,7 @@ const ProfessionalProfilePanel = () => {
             };
             const res = await customerApi.createProfessionalProfile(payload);
             if (res.data?.success) {
-                showToast("Professional advertisement registered successfully!", "success");
+                showToast("Professional profile registered successfully!", "success");
                 loadProfile();
             }
         } catch (error) {
@@ -178,16 +304,145 @@ const ProfessionalProfilePanel = () => {
         }
     };
 
+    const handleSubmitPlatformAd = async (e) => {
+        e.preventDefault();
+        if (!platTitle.trim() || !platContent.trim() || !platCity.trim()) {
+            return showToast("Title, Description, and City are required", "error");
+        }
+        try {
+            setIsLoading(true);
+            const payload = {
+                title: platTitle,
+                content: platContent,
+                mediaUrl: platVideoUrl || platImageUrl || '',
+                mediaType: platVideoUrl ? 'video' : (platImageUrl ? 'image' : 'none'),
+                imageUrl: platImageUrl,
+                videoUrl: platVideoUrl,
+                targetUrl: platTargetUrl,
+                city: platCity
+            };
+            const res = await customerApi.createPlatformAd(payload);
+            if (res.data?.success) {
+                const newAd = res.data.result;
+                setIsSubmittingPlatformAd(false);
+                setPlatTitle('');
+                setPlatContent('');
+                setPlatMediaUrl('');
+                setPlatMediaType('none');
+                setPlatImageUrl('');
+                setPlatVideoUrl('');
+                setPlatTargetUrl('');
+                setPlatCity('');
+                
+                // Trigger Razorpay payment flow immediately
+                await handlePayPlatformAd(newAd);
+            }
+        } catch (error) {
+            showToast(error.response?.data?.message || "Failed to submit request", "error");
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const loadRazorpayScript = () => {
+        return new Promise((resolve) => {
+            if (window.Razorpay) {
+                resolve(true);
+                return;
+            }
+            const script = document.createElement("script");
+            script.src = "https://checkout.razorpay.com/v1/checkout.js";
+            script.onload = () => resolve(true);
+            script.onerror = () => resolve(false);
+            document.body.appendChild(script);
+        });
+    };
+
+    const handlePayPlatformAd = async (adItem) => {
+        const id = typeof adItem === 'string' ? adItem : adItem?._id;
+        const price = typeof adItem === 'object' 
+            ? (adItem.price || settings?.platformAdListingFee || 999) 
+            : (settings?.platformAdListingFee || 999);
+
+        try {
+            setIsLoading(true);
+            const loaded = await loadRazorpayScript();
+            if (!loaded) {
+                showToast("Failed to load Razorpay SDK. Check your internet connection.", "error");
+                return;
+            }
+
+            const initRes = await customerApi.initiatePayPlatformAd(id);
+            if (!initRes.data?.success) {
+                showToast(initRes.data?.message || "Failed to initiate payment", "error");
+                return;
+            }
+
+            const { orderId, amount, keyId } = initRes.data.result;
+
+            const options = {
+                key: keyId,
+                amount: amount,
+                currency: "INR",
+                name: "Seva Fast",
+                description: `Platform Banner Ad Subscription Fee`,
+                order_id: orderId,
+                handler: async (response) => {
+                    try {
+                        setIsLoading(true);
+                        const verifyRes = await customerApi.verifyPayPlatformAd(id, {
+                            razorpay_order_id: response.razorpay_order_id,
+                            razorpay_payment_id: response.razorpay_payment_id,
+                            razorpay_signature: response.razorpay_signature
+                        });
+                        if (verifyRes.data?.success) {
+                            showToast("Payment successful! Banner ad request submitted for admin review.", "success");
+                            loadPlatformAds();
+                        } else {
+                            showToast(verifyRes.data?.message || "Payment verification failed", "error");
+                        }
+                    } catch (err) {
+                        showToast(err.response?.data?.message || "Verification request failed", "error");
+                    } finally {
+                        setIsLoading(false);
+                    }
+                },
+                prefill: {
+                    name: ad?.name || "",
+                    email: ad?.email || "",
+                    contact: ad?.phone || ""
+                },
+                theme: {
+                    color: "#000000"
+                },
+                modal: {
+                    ondismiss: () => {
+                        showToast("Payment cancelled. Complete payment from dashboard to submit.", "info");
+                    }
+                }
+            };
+
+            const rzp = new window.Razorpay(options);
+            rzp.open();
+        } catch (error) {
+            showToast(error.response?.data?.message || "Payment initiation failed", "error");
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     const getListingPriceToShow = () => {
+        const defaultFee = settings?.professionalAdListingFee ?? 499;
+
         if (!ad) {
             // New registration preview
             const selectedCats = categories.filter(c => categoryIds.includes(c._id));
             const paidCats = selectedCats.filter(c => c.priceType === 'paid');
             if (paidCats.length === 0) return 0;
-            return paidCats.reduce((sum, c) => sum + (c.price ?? 499), 0);
+            return paidCats.reduce((sum, c) => sum + (c.price ?? defaultFee), 0);
         }
         const targetCategories = ad.categories && ad.categories.length > 0 ? ad.categories : (ad.category ? [ad.category] : []);
-        if (targetCategories.length === 0) return 499;
+        if (targetCategories.length === 0) return defaultFee;
 
         const hasPaidCategory = targetCategories.some(cat => {
             const resolved = typeof cat === 'string' ? categories.find(c => c._id === cat) : cat;
@@ -201,7 +456,7 @@ const ProfessionalProfilePanel = () => {
         });
         const prices = paidCategories.map(cat => {
             const resolved = typeof cat === 'string' ? categories.find(c => c._id === cat) : cat;
-            return resolved?.price ?? 499;
+            return resolved?.price ?? defaultFee;
         });
         return prices.reduce((sum, val) => sum + val, 0);
     };
@@ -233,17 +488,86 @@ const ProfessionalProfilePanel = () => {
 
     const executePayment = async () => {
         const fee = getListingPriceToShow();
-        const isFree = fee === 0;
+        if (fee === 0) {
+            try {
+                setIsLoading(true);
+                setIsConfirmingPayment(false);
+                const res = await customerApi.payProfessionalProfile();
+                if (res.data?.success) {
+                    showToast("Listing activation successful!", "success");
+                    loadProfile();
+                }
+            } catch (error) {
+                showToast(error.response?.data?.message || "Activation failed", "error");
+            } finally {
+                setIsLoading(false);
+            }
+            return;
+        }
+
         try {
             setIsLoading(true);
             setIsConfirmingPayment(false);
-            const res = await customerApi.payProfessionalProfile();
-            if (res.data?.success) {
-                showToast(isFree ? "Listing activation successful!" : "Listing activation payment successful!", "success");
-                loadProfile();
+            const loaded = await loadRazorpayScript();
+            if (!loaded) {
+                showToast("Failed to load Razorpay SDK. Check your internet connection.", "error");
+                return;
             }
+
+            const initRes = await customerApi.initiatePayProfessionalProfile();
+            if (!initRes.data?.success) {
+                showToast(initRes.data?.message || "Failed to initiate payment", "error");
+                return;
+            }
+
+            const { orderId, amount, keyId } = initRes.data.result;
+
+            const options = {
+                key: keyId,
+                amount: amount,
+                currency: "INR",
+                name: "Seva Fast",
+                description: `Professional Directory Listing Fee`,
+                order_id: orderId,
+                handler: async (response) => {
+                    try {
+                        setIsLoading(true);
+                        const verifyRes = await customerApi.verifyPayProfessionalProfile({
+                            razorpay_order_id: response.razorpay_order_id,
+                            razorpay_payment_id: response.razorpay_payment_id,
+                            razorpay_signature: response.razorpay_signature
+                        });
+                        if (verifyRes.data?.success) {
+                            showToast("Listing payment verified and activated successfully!", "success");
+                            loadProfile();
+                        } else {
+                            showToast(verifyRes.data?.message || "Payment verification failed", "error");
+                        }
+                    } catch (err) {
+                        showToast(err.response?.data?.message || "Verification request failed", "error");
+                    } finally {
+                        setIsLoading(false);
+                    }
+                },
+                prefill: {
+                    name: ad?.name || "",
+                    email: ad?.email || "",
+                    contact: ad?.phone || ""
+                },
+                theme: {
+                    color: "#000000"
+                },
+                modal: {
+                    ondismiss: () => {
+                        showToast("Payment cancelled", "info");
+                    }
+                }
+            };
+
+            const rzp = new window.Razorpay(options);
+            rzp.open();
         } catch (error) {
-            showToast(error.response?.data?.message || "Activation failed", "error");
+            showToast(error.response?.data?.message || "Payment initiation failed", "error");
         } finally {
             setIsLoading(false);
         }
@@ -296,7 +620,30 @@ const ProfessionalProfilePanel = () => {
 
     return (
         <div className="max-w-4xl mx-auto px-4 py-8 animate-in fade-in duration-750 pb-20">
-            {ad ? (
+            {/* TABS HEADER */}
+            <div className="flex border-b border-slate-100 gap-8 mb-8">
+                <button
+                    onClick={() => setActiveTab('directory')}
+                    className={`pb-4 text-xs font-black uppercase tracking-widest transition-all relative ${
+                        activeTab === 'directory' ? 'text-black' : 'text-slate-400 hover:text-slate-600'
+                    }`}
+                >
+                    Directory Listing
+                    {activeTab === 'directory' && <div className="absolute bottom-0 left-0 right-0 h-1 bg-black rounded-full animate-in fade-in" />}
+                </button>
+                <button
+                    onClick={() => setActiveTab('banners')}
+                    className={`pb-4 text-xs font-black uppercase tracking-widest transition-all relative ${
+                        activeTab === 'banners' ? 'text-black' : 'text-slate-400 hover:text-slate-600'
+                    }`}
+                >
+                    Promotional Banners
+                    {activeTab === 'banners' && <div className="absolute bottom-0 left-0 right-0 h-1 bg-black rounded-full animate-in fade-in" />}
+                </button>
+            </div>
+
+            {activeTab === 'directory' && (
+                ad ? (
                 /* PROFILE DASHBOARD DISPLAY */
                 <div className="space-y-8">
                     {/* ALERT BANNER FOR UNPAID / PENDING APPROVAL */}
@@ -335,6 +682,12 @@ const ProfessionalProfilePanel = () => {
                             <div className="flex items-center gap-3">
                                 <h1 className="text-2xl font-black text-slate-955">{ad.name}</h1>
                                 <span className="px-3 py-1 bg-brand-50 rounded-full text-xs font-black text-brand-600 uppercase tracking-wider">{ad.profession}</span>
+                                <button
+                                    onClick={handleOpenEditProfile}
+                                    className="inline-flex items-center gap-1 px-2.5 py-1 bg-slate-50 hover:bg-slate-100 text-slate-700 text-[9px] font-black uppercase tracking-wider rounded-full transition-all border border-slate-100 shadow-sm"
+                                >
+                                    <Edit2 className="h-3 w-3" /> Edit Profile Details
+                                </button>
                             </div>
                             <div className="flex items-center gap-4 text-xs font-bold text-slate-500 flex-wrap">
                                 <span className="flex items-center gap-1"><MapPin className="h-4 w-4 text-slate-400" /> {ad.city} ({ad.address})</span>
@@ -754,6 +1107,7 @@ const ProfessionalProfilePanel = () => {
                             </div>
                         </div>
 
+
                         <div className="space-y-1">
                             <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">Service Profile Description</label>
                             <textarea
@@ -795,7 +1149,331 @@ const ProfessionalProfilePanel = () => {
                             Register Profile Details <ChevronRight className="h-4 w-4" />
                         </button>
                     </form>
+                </div>
+            ))}
 
+            {activeTab === 'banners' && (
+                <div className="space-y-8 animate-in fade-in duration-300">
+                    <div className="bg-white p-6 md:p-8 rounded-[32px] md:rounded-[40px] border border-slate-100 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
+                        <div className="space-y-2">
+                            <h1 className="text-2xl font-black text-slate-955 flex items-center gap-2">
+                                Promotional Banners
+                                <Sparkles className="h-5 w-5 text-brand-500 animate-pulse" />
+                            </h1>
+                            <p className="text-xs text-slate-400 font-bold leading-relaxed max-w-xl">
+                                Run custom banner images or video advertisements on SevaFast platform. Gated behind admin approval (₹{settings?.platformAdListingFee ?? 999} / 30 Days).
+                            </p>
+                        </div>
+                        <button
+                            onClick={() => setIsSubmittingPlatformAd(true)}
+                            className="w-full sm:w-auto px-6 py-3.5 bg-black hover:bg-slate-900 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-lg shadow-black/10 shrink-0"
+                        >
+                            <Plus className="h-4 w-4" /> Create Ad Request
+                        </button>
+                    </div>
+
+                    {/* LIST OF BANNERS */}
+                    <div className="space-y-6">
+                        {platformAds.length === 0 ? (
+                            <div className="bg-white p-12 rounded-[32px] border border-slate-100 shadow-sm flex flex-col items-center justify-center text-center space-y-4">
+                                <div className="p-4 bg-slate-50 rounded-full text-slate-400">
+                                    <Sparkles className="h-8 w-8" />
+                                </div>
+                                <div className="space-y-1">
+                                    <p className="text-sm font-black text-slate-800">No Banner Ads Submitted Yet</p>
+                                    <p className="text-xs text-slate-400 font-bold max-w-sm">Create an ad request to promote your service, store, or clinic at the top banner positions on SevaFast.</p>
+                                </div>
+                                <button
+                                    onClick={() => setIsSubmittingPlatformAd(true)}
+                                    className="px-6 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-black uppercase tracking-wider transition-all"
+                                >
+                                    Submit First Banner Ad
+                                </button>
+                            </div>
+                        ) : (
+                            platformAds.map((adItem) => (
+                                <div key={adItem._id} className="bg-white p-6 rounded-[32px] border border-slate-100 shadow-sm grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
+                                    {/* Media preview */}
+                                    <div className="md:col-span-4 grid grid-cols-2 gap-2">
+                                        {(adItem.imageUrl || (adItem.mediaUrl && adItem.mediaType === 'image')) ? (
+                                            <div className="rounded-xl overflow-hidden bg-slate-50 border border-slate-100 relative aspect-video flex items-center justify-center">
+                                                <img src={adItem.imageUrl || adItem.mediaUrl} alt={adItem.title} className="w-full h-full object-cover" />
+                                            </div>
+                                        ) : (
+                                            <div className="rounded-xl overflow-hidden bg-slate-50 border border-slate-100 relative aspect-video flex items-center justify-center">
+                                                <span className="text-[9px] font-black uppercase text-slate-400">No Image</span>
+                                            </div>
+                                        )}
+                                        {(adItem.videoUrl || (adItem.mediaUrl && adItem.mediaType === 'video')) ? (
+                                            <div className="rounded-xl overflow-hidden bg-slate-50 border border-slate-100 relative aspect-video flex items-center justify-center">
+                                                <video src={adItem.videoUrl || adItem.mediaUrl} controls className="w-full h-full object-contain" />
+                                            </div>
+                                        ) : (
+                                            <div className="rounded-xl overflow-hidden bg-slate-50 border border-slate-100 relative aspect-video flex items-center justify-center">
+                                                <span className="text-[9px] font-black uppercase text-slate-400">No Video</span>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Ad Details */}
+                                    <div className="md:col-span-5 space-y-2">
+                                        <div className="flex items-center gap-2">
+                                            <h3 className="text-base font-black text-slate-900">{adItem.title}</h3>
+                                            <span className="px-2 py-0.5 bg-slate-100 rounded text-[9px] font-black text-slate-500 uppercase tracking-wider">{adItem.city}</span>
+                                        </div>
+                                        <p className="text-xs font-bold text-slate-500 leading-relaxed line-clamp-3">{adItem.content}</p>
+                                        {adItem.targetUrl && (
+                                            <a href={adItem.targetUrl} target="_blank" rel="noreferrer" className="inline-flex text-[10px] font-black text-brand-600 hover:text-brand-700 underline truncate max-w-full">
+                                                Target link: {adItem.targetUrl}
+                                            </a>
+                                        )}
+                                        {adItem.approvalStatus === 'rejected' && adItem.rejectionReason && (
+                                            <div className="p-3 bg-rose-50 text-rose-700 text-xs font-bold rounded-xl border border-rose-100">
+                                                Rejection Reason: {adItem.rejectionReason}
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Status and Action */}
+                                    <div className="md:col-span-3 flex flex-col gap-2 items-start md:items-end justify-between h-full min-h-[100px]">
+                                        <div className="flex flex-col gap-1 items-start md:items-end w-full">
+                                            {/* Approval status badge */}
+                                            {adItem.paymentStatus === 'unpaid' ? (
+                                                <span className="px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-wider bg-slate-100 text-slate-500">
+                                                    Draft (Unpaid)
+                                                </span>
+                                            ) : (
+                                                <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-wider capitalize ${
+                                                    adItem.approvalStatus === 'approved' ? 'bg-emerald-50 text-emerald-700' :
+                                                    adItem.approvalStatus === 'rejected' ? 'bg-rose-50 text-rose-700' : 'bg-amber-50 text-amber-700'
+                                                }`}>
+                                                    {adItem.approvalStatus === 'pending' ? 'Pending Admin Approval' : adItem.approvalStatus}
+                                                </span>
+                                            )}
+                                            {/* Payment status badge */}
+                                            <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-wider capitalize ${
+                                                adItem.paymentStatus === 'paid' ? 'bg-sky-50 text-sky-700' : 'bg-slate-50 text-slate-500'
+                                            }`}>
+                                                {adItem.paymentStatus}
+                                            </span>
+                                        </div>
+
+                                        {adItem.paymentStatus === 'unpaid' && (
+                                            <button
+                                                onClick={() => handlePayPlatformAd(adItem)}
+                                                className="w-full px-4 py-2.5 bg-black hover:bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-wider transition-all text-center"
+                                            >
+                                                Pay ₹{adItem.price || settings?.platformAdListingFee || 999} to Submit Request
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            ))
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {/* CREATE PLATFORM AD MODAL */}
+            {isSubmittingPlatformAd && (
+                <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[550] p-4 animate-in fade-in">
+                    <div className="bg-white rounded-[32px] md:rounded-[40px] p-6 md:p-8 max-w-xl w-full shadow-2xl space-y-6 max-h-[85vh] overflow-y-auto scrollbar-none animate-in zoom-in-95 duration-200">
+                        <div className="flex justify-between items-center">
+                            <div>
+                                <h2 className="text-xl font-black text-slate-900">New Banner Ad Request</h2>
+                                <p className="text-xs text-slate-400 font-bold mt-1">Submit banner files and details to run local/global ads.</p>
+                            </div>
+                            <button
+                                onClick={() => setIsSubmittingPlatformAd(false)}
+                                className="p-2 bg-slate-50 hover:bg-slate-100 rounded-full transition-all"
+                            >
+                                <X className="h-4 w-4" />
+                            </button>
+                        </div>
+
+                        <form onSubmit={handleSubmitPlatformAd} className="space-y-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">Ad Campaign Title</label>
+                                    <input
+                                        type="text"
+                                        required
+                                        value={platTitle}
+                                        onChange={(e) => setPlatTitle(e.target.value)}
+                                        placeholder="e.g. Special Discount Offer"
+                                        className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-brand-500/10 transition-all"
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">Target Link / URL (Optional)</label>
+                                    <input
+                                        type="url"
+                                        value={platTargetUrl}
+                                        onChange={(e) => setPlatTargetUrl(e.target.value)}
+                                        placeholder="https://example.com/promo"
+                                        className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-brand-500/10 transition-all"
+                                    />
+                                </div>
+                                <div className="space-y-1 md:col-span-2">
+                                    <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">Target Operational City</label>
+                                    <input
+                                        type="text"
+                                        required
+                                        value={platCity}
+                                        onChange={(e) => setPlatCity(e.target.value)}
+                                        placeholder="e.g. Indore"
+                                        className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-brand-500/10 transition-all"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="space-y-1">
+                                <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">Ad Content / Description</label>
+                                <textarea
+                                    required
+                                    value={platContent}
+                                    onChange={(e) => setPlatContent(e.target.value)}
+                                    placeholder="Write a clear call-to-action description or information about this advertisement banner..."
+                                    rows="3"
+                                    className="w-full px-4 py-3.5 bg-slate-50 border-none rounded-xl text-sm font-bold text-slate-900 outline-none resize-none focus:ring-2 focus:ring-brand-500/10 transition-all"
+                                />
+                            </div>
+
+                            <div className="space-y-4">
+                                <div className="flex justify-between items-center bg-slate-50 p-2.5 rounded-2xl border border-slate-100">
+                                    <span className="text-xs font-black uppercase tracking-wider text-slate-700">Choose Media Type</span>
+                                    <div className="flex bg-slate-200/60 p-1 rounded-xl gap-1">
+                                        <button
+                                            type="button"
+                                            onClick={() => setActiveMediaTab('image')}
+                                            className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${
+                                                activeMediaTab === 'image'
+                                                    ? "bg-white text-black shadow-sm"
+                                                    : "text-slate-500 hover:text-slate-800"
+                                            }`}
+                                        >
+                                            Image {platImageUrl && "✓"}
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setActiveMediaTab('video')}
+                                            className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${
+                                                activeMediaTab === 'video'
+                                                    ? "bg-white text-black shadow-sm"
+                                                    : "text-slate-500 hover:text-slate-800"
+                                            }`}
+                                        >
+                                            Video {platVideoUrl && "✓"}
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 gap-4">
+                                    {/* PHOTO UPLOAD */}
+                                    {activeMediaTab === 'image' && (
+                                        <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex flex-col items-center justify-center text-center space-y-2 relative animate-in fade-in duration-200">
+                                            <h4 className="text-[10px] font-black uppercase tracking-wider text-slate-500">Banner Photo (Image)</h4>
+                                            <label className="cursor-pointer flex flex-col items-center justify-center h-32 w-full bg-white hover:bg-slate-50 border border-slate-200 border-dashed rounded-xl transition-all relative overflow-hidden group">
+                                                {isUploadingMedia ? (
+                                                    <Loader2 className="h-5 w-5 text-brand-500 animate-spin" />
+                                                ) : platImageUrl ? (
+                                                    <img src={platImageUrl} alt="Preview" className="h-full w-full object-cover" />
+                                                ) : (
+                                                    <div className="flex flex-col items-center justify-center text-slate-400 group-hover:text-slate-600">
+                                                        <Upload className="h-5 w-5" />
+                                                        <span className="text-[8px] font-black uppercase mt-1">Upload Photo</span>
+                                                        <span className="text-[7px] text-slate-400 font-bold mt-0.5">JPEG, PNG up to 10MB</span>
+                                                    </div>
+                                                )}
+                                                <input
+                                                    type="file"
+                                                    accept="image/*"
+                                                    className="hidden"
+                                                    onChange={(e) => {
+                                                        handleUploadMediaFile(e, setPlatImageUrl, () => {});
+                                                    }}
+                                                    disabled={isUploadingMedia}
+                                                />
+                                            </label>
+                                            {platImageUrl && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => { setPlatImageUrl(''); }}
+                                                    className="text-[8px] font-black uppercase text-rose-500 hover:text-rose-700"
+                                                >
+                                                    Remove Photo
+                                                </button>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {/* VIDEO UPLOAD */}
+                                    {activeMediaTab === 'video' && (
+                                        <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex flex-col items-center justify-center text-center space-y-2 relative animate-in fade-in duration-200">
+                                            <h4 className="text-[10px] font-black uppercase tracking-wider text-slate-500">Banner Video</h4>
+                                            <label className="cursor-pointer flex flex-col items-center justify-center h-32 w-full bg-white hover:bg-slate-50 border border-slate-200 border-dashed rounded-xl transition-all relative overflow-hidden group">
+                                                {isUploadingMedia ? (
+                                                    <Loader2 className="h-5 w-5 text-brand-500 animate-spin" />
+                                                ) : platVideoUrl ? (
+                                                    <video src={platVideoUrl} className="h-full w-full object-cover" controls />
+                                                ) : (
+                                                    <div className="flex flex-col items-center justify-center text-slate-400 group-hover:text-slate-600">
+                                                        <Upload className="h-5 w-5" />
+                                                        <span className="text-[8px] font-black uppercase mt-1">Upload Video</span>
+                                                        <span className="text-[7px] text-slate-400 font-bold mt-0.5">MP4, WebM up to 10MB</span>
+                                                    </div>
+                                                )}
+                                                <input
+                                                    type="file"
+                                                    accept="video/*"
+                                                    className="hidden"
+                                                    onChange={(e) => {
+                                                        handleUploadMediaFile(e, setPlatVideoUrl, () => {});
+                                                    }}
+                                                    disabled={isUploadingMedia}
+                                                />
+                                            </label>
+                                            {platVideoUrl && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => { setPlatVideoUrl(''); }}
+                                                    className="text-[8px] font-black uppercase text-rose-500 hover:text-rose-700"
+                                                >
+                                                    Remove Video
+                                                </button>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                            <div className="bg-amber-50/50 p-4 rounded-2xl border border-amber-100 flex items-start gap-3">
+                                 <AlertCircle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                                 <div className="space-y-0.5">
+                                     <h4 className="text-[10px] font-black uppercase tracking-wider text-amber-800">Advertisement Price: ₹{settings?.platformAdListingFee ?? 999}</h4>
+                                     <p className="text-[10px] text-amber-700 font-bold leading-normal">
+                                         The subscription runs for 30 days. After payment, your request is submitted for admin review and approval.
+                                     </p>
+                                 </div>
+                             </div>
+
+                             <div className="flex gap-3 pt-4 border-t border-slate-100">
+                                 <button
+                                     type="button"
+                                     onClick={() => setIsSubmittingPlatformAd(false)}
+                                     className="flex-1 py-3.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-black uppercase tracking-wider text-center"
+                                 >
+                                     Cancel
+                                 </button>
+                                 <button
+                                     type="submit"
+                                     disabled={isUploadingMedia}
+                                     className="flex-1 py-3.5 bg-black text-white rounded-xl text-xs font-black uppercase tracking-wider text-center hover:scale-[1.01] disabled:opacity-60"
+                                 >
+                                     Pay & Submit Request
+                                 </button>
+                             </div>
+                        </form>
+                    </div>
                 </div>
             )}
 
@@ -919,6 +1597,147 @@ const ProfessionalProfilePanel = () => {
                                 Pay ₹{getListingPriceToShow()} Now
                             </button>
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {/* EDIT PROFILE DETAILS & MEDIA MODAL */}
+            {isEditingProfile && (
+                <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[550] p-4 animate-in fade-in">
+                    <div className="bg-white rounded-[32px] md:rounded-[40px] p-6 md:p-8 max-w-2xl w-full shadow-2xl space-y-6 max-h-[85vh] overflow-y-auto scrollbar-none animate-in zoom-in-95 duration-200">
+                        <div className="flex justify-between items-center">
+                            <div>
+                                <h2 className="text-xl font-black text-slate-900">Edit Profile Details</h2>
+                                <p className="text-xs text-slate-400 font-bold mt-1">Update your professional details.</p>
+                            </div>
+                            <button
+                                onClick={() => setIsEditingProfile(false)}
+                                className="p-2 bg-slate-50 hover:bg-slate-100 rounded-full transition-all"
+                            >
+                                <X className="h-4 w-4" />
+                            </button>
+                        </div>
+                        <form onSubmit={handleUpdateProfileSubmit} className="space-y-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">Full Name</label>
+                                    <input
+                                        type="text"
+                                        required
+                                        value={editName}
+                                        onChange={(e) => setEditName(e.target.value)}
+                                        className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-brand-500/10 transition-all"
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">Phone Number</label>
+                                    <input
+                                        type="text"
+                                        required
+                                        maxLength={10}
+                                        value={editPhone}
+                                        onChange={(e) => setEditPhone(e.target.value.replace(/\D/g, ''))}
+                                        className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-brand-500/10 transition-all"
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">Email Address (Optional)</label>
+                                    <input
+                                        type="email"
+                                        value={editEmail}
+                                        onChange={(e) => setEditEmail(e.target.value)}
+                                        className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-brand-500/10 transition-all"
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">Profession Service Title</label>
+                                    <input
+                                        type="text"
+                                        required
+                                        value={editProfession}
+                                        onChange={(e) => setEditProfession(e.target.value)}
+                                        className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-brand-500/10 transition-all"
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">Years of Experience</label>
+                                    <input
+                                        type="number"
+                                        required
+                                        min="0"
+                                        value={editExperienceYears}
+                                        onChange={(e) => setEditExperienceYears(e.target.value)}
+                                        className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-brand-500/10 transition-all"
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">Operational City</label>
+                                    <input
+                                        type="text"
+                                        required
+                                        value={editCity}
+                                        onChange={(e) => setEditCity(e.target.value)}
+                                        className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-brand-500/10 transition-all"
+                                    />
+                                </div>
+                                <div className="space-y-1 md:col-span-2">
+                                    <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">Full Address</label>
+                                    <input
+                                        type="text"
+                                        required
+                                        value={editAddress}
+                                        onChange={(e) => setEditAddress(e.target.value)}
+                                        className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-brand-500/10 transition-all"
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">Latitude Coordinate</label>
+                                    <input
+                                        type="text"
+                                        required
+                                        value={editLat}
+                                        onChange={(e) => setEditLat(e.target.value)}
+                                        className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-brand-500/10 transition-all"
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">Longitude Coordinate</label>
+                                    <input
+                                        type="text"
+                                        required
+                                        value={editLng}
+                                        onChange={(e) => setEditLng(e.target.value)}
+                                        className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-brand-500/10 transition-all"
+                                    />
+                                </div>
+                            </div>
+                            <div className="space-y-1">
+                                <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">Service Profile Description</label>
+                                <textarea
+                                    required
+                                    value={editDescription}
+                                    onChange={(e) => setEditDescription(e.target.value)}
+                                    rows="3"
+                                    className="w-full px-4 py-3.5 bg-slate-50 border-none rounded-xl text-sm font-bold text-slate-900 outline-none resize-none focus:ring-2 focus:ring-brand-500/10 transition-all"
+                                />
+                            </div>
+                            <div className="flex gap-3 pt-4 border-t border-slate-100">
+                                <button
+                                    type="button"
+                                    onClick={() => setIsEditingProfile(false)}
+                                    className="flex-1 py-3.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-black uppercase tracking-wider text-center"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={isUploadingMedia}
+                                    className="flex-1 py-3.5 bg-black text-white rounded-xl text-xs font-black uppercase tracking-wider text-center hover:scale-[1.01] disabled:opacity-60"
+                                >
+                                    Save Changes
+                                </button>
+                            </div>
+                        </form>
                     </div>
                 </div>
             )}

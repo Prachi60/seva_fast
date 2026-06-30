@@ -216,8 +216,8 @@ const Auth = () => {
 
   const handleVerifyOtp = async (field) => {
     const verificationState = verifications[field];
-    if (!/^\d{4}$/.test(verificationState.otp || "")) {
-      toast.error("Enter a valid 4-digit OTP.");
+    if (!/^\d{6}$/.test(verificationState.otp || "")) {
+      toast.error("Enter a valid 6-digit OTP.");
       return;
     }
 
@@ -606,12 +606,12 @@ const Auth = () => {
                         <input
                           type="text"
                           inputMode="numeric"
-                          maxLength={4}
+                          maxLength={6}
                           placeholder="Enter email OTP"
                           value={verifications.email.otp}
                           onChange={(e) =>
                             updateVerificationState("email", {
-                              otp: e.target.value.replace(/\D/g, "").slice(0, 4),
+                              otp: e.target.value.replace(/\D/g, "").slice(0, 6),
                             })
                           }
                           className="flex-1 bg-transparent text-sm font-bold text-slate-700 outline-none placeholder:text-slate-400"
@@ -619,7 +619,7 @@ const Auth = () => {
                         <button
                           type="button"
                           onClick={() => handleVerifyOtp("email")}
-                          disabled={verifications.email.isVerifying || verifications.email.otp.length !== 4}
+                          disabled={verifications.email.isVerifying || verifications.email.otp.length !== 6}
                           className="rounded-md bg-white px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-slate-700 shadow-sm ring-1 ring-slate-200 hover:bg-slate-100 disabled:opacity-50"
                         >
                           {verifications.email.isVerifying ? "Checking..." : "Confirm OTP"}
@@ -676,12 +676,12 @@ const Auth = () => {
                             <input
                               type="text"
                               inputMode="numeric"
-                              maxLength={4}
+                              maxLength={6}
                               placeholder="Enter phone OTP"
                               value={verifications.phone.otp}
                               onChange={(e) =>
                                 updateVerificationState("phone", {
-                                  otp: e.target.value.replace(/\D/g, "").slice(0, 4),
+                                  otp: e.target.value.replace(/\D/g, "").slice(0, 6),
                                 })
                               }
                               className="flex-1 bg-transparent text-sm font-bold text-slate-700 outline-none placeholder:text-slate-400"
@@ -689,7 +689,7 @@ const Auth = () => {
                             <button
                               type="button"
                               onClick={() => handleVerifyOtp("phone")}
-                              disabled={verifications.phone.isVerifying || verifications.phone.otp.length !== 4}
+                              disabled={verifications.phone.isVerifying || verifications.phone.otp.length !== 6}
                               className="rounded-md bg-white px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-slate-700 shadow-sm ring-1 ring-slate-200 hover:bg-slate-100 disabled:opacity-50"
                             >
                               {verifications.phone.isVerifying ? "Checking..." : "Confirm OTP"}

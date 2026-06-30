@@ -1,6 +1,6 @@
 import crypto from "crypto";
 
-const DEFAULT_OTP_LENGTH = 4;
+const DEFAULT_OTP_LENGTH = 6;
 
 export function normalizeMobile(mobile) {
   return String(mobile || "").replace(/\D/g, "").slice(-10);
@@ -17,7 +17,7 @@ export function getOtpLength() {
 }
 
 export function generateOTP(length = getOtpLength()) {
-  const safeLength = Math.max(4, Number(length || DEFAULT_OTP_LENGTH));
+  const safeLength = Math.max(6, Number(length || DEFAULT_OTP_LENGTH));
   const min = 10 ** (safeLength - 1);
   const max = 10 ** safeLength;
   return crypto.randomInt(min, max).toString();
@@ -30,15 +30,24 @@ export function buildMessage(otp) {
       "Your OTP is {{OTP}}. Valid for {{MINUTES}} minutes.",
   );
   const appName = String(process.env.APP_NAME || "Noyo").trim();
+  const otpStr = String(otp);
+  const minutesStr = String(minutes);
 
-  // Primary replacements for common tags
+  // Replace all common template placeholder styles (DLT, env, mustache, etc.)
   let msg = template
-    .replace(/\{\{OTP\}\}/g, String(otp))
-    .replace(/\{\{MINUTES\}\}/g, String(minutes))
-    .replace(/\{\{APP_NAME\}\}/g, appName)
-    .replace(/\$\{otp\}/g, String(otp))
-    .replace(/\$\{minutes\}/g, String(minutes))
-    .replace(/\$\{appName\}/g, appName);
+    .replace(/\{\{OTP\}\}/gi, otpStr)
+    .replace(/\{\{MINUTES\}\}/gi, minutesStr)
+    .replace(/\{\{APP_NAME\}\}/gi, appName)
+    .replace(/\{otp\}/gi, otpStr)
+    .replace(/\{OTP\}/g, otpStr)
+    .replace(/\{APP_NAME\}/gi, appName)
+    .replace(/\{app_name\}/gi, appName)
+    .replace(/\{MINUTES\}/gi, minutesStr)
+    .replace(/\{minutes\}/gi, minutesStr)
+    .replace(/\$\{otp\}/gi, otpStr)
+    .replace(/\$\{minutes\}/gi, minutesStr)
+    .replace(/\$\{appName\}/gi, appName)
+    .replace(/\$\{APP_NAME\}/g, appName);
 
   // DLT templates often use generic variable tokens. Replace them in a stable order
   // so the generated content always matches the approved template wording.
@@ -50,7 +59,7 @@ export function buildMessage(otp) {
     "{#var2#}",
     "{#var3#}",
   ];
-  const replacementOrder = [appName, String(otp), String(minutes)];
+  const replacementOrder = [appName, otpStr, minutesStr];
 
   genericPlaceholders.forEach((placeholder) => {
     let occurrence = 0;

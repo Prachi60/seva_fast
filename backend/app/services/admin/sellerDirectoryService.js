@@ -457,6 +457,11 @@ export async function getActiveSellersData({
       avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(
         seller.shopName || seller.name || seller.email || "seller",
       )}`,
+      acceptsPhotoOrders: seller.acceptsPhotoOrders || false,
+      commissionModel: seller.commissionModel || "CATEGORY_WISE",
+      oneTimeChargePaid: seller.oneTimeChargePaid || false,
+      oneTimeChargeAmount: seller.oneTimeChargeAmount || 0,
+      categoryCommissionOverrides: seller.categoryCommissionOverrides || {},
     };
   });
 

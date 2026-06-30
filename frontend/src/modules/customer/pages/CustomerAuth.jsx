@@ -125,21 +125,32 @@ const CustomerAuth = () => {
             return;
         }
         setIsLoading(true);
+
         try {
             if (isLogin) {
-                await customerApi.sendLoginOtp({ phone: formData.phone });
+                const res = await customerApi.sendLoginOtp({ phone: formData.phone });
+                toast.success(res.data?.message || 'OTP sent successfully!');
             } else {
-                await customerApi.sendSignupOtp({ 
-                    name: formData.name, 
-                    phone: formData.phone, 
-                    referralCode: formData.referralCode 
+                if (!formData.name.trim()) {
+                    toast.error('Name is required');
+                    return;
+                }
+                if (!formData.referralCode.trim()) {
+                    toast.error('Referral Code is required');
+                    return;
+                }
+                const res = await customerApi.sendSignupOtp({
+                    name: formData.name.trim(),
+                    phone: formData.phone,
+                    referralCode: formData.referralCode.trim(),
                 });
+                toast.success(res.data?.message || 'OTP sent successfully!');
             }
             setShowOtp(true);
-            setTimer(30);
-            toast.success('OTP sent!');
+            setTimer(60);
         } catch (error) {
-            toast.error('Failed to send OTP');
+            console.error('SMS OTP send error:', error);
+            toast.error(error?.response?.data?.message || 'Failed to send OTP. Please check your number.');
         } finally {
             setIsLoading(false);
         }
@@ -147,16 +158,22 @@ const CustomerAuth = () => {
 
     const handleVerifyOtp = async (e) => {
         e.preventDefault();
-        if (formData.otp.length !== 4) {
-            toast.error('Enter 4-digit code');
+        if (!formData.otp || formData.otp.length < 4) {
+            toast.error('Enter valid OTP code');
             return;
         }
         setIsLoading(true);
         try {
-            const response = await customerApi.verifyOtp({ phone: formData.phone, otp: formData.otp });
-            const { token, customer } = response.data.result;
+            const response = await customerApi.verifyOtp({
+                phone: formData.phone,
+                otp: formData.otp,
+            });
+
+            const responseData = response.data.result || response.data;
+            const { token, customer } = responseData;
+
             login({ ...customer, token, role: 'customer' });
-            
+
             if (!customer.currentPlan) {
                 toast.success('Account created! Please select a plan to continue.');
                 navigate('/plans', { replace: true });
@@ -165,8 +182,8 @@ const CustomerAuth = () => {
                 navigate('/');
             }
         } catch (error) {
-            const apiMessage = error?.response?.data?.message;
-            toast.error(apiMessage || 'Invalid OTP');
+            console.error('SMS OTP verification error:', error);
+            toast.error(error?.response?.data?.message || 'Invalid OTP');
         } finally {
             setIsLoading(false);
         }
@@ -497,13 +514,13 @@ const CustomerAuth = () => {
                                     </div>
 
                                     <form onSubmit={handleVerifyOtp} className="space-y-10">
-                                        <div className="flex justify-between gap-3 px-1">
-                                            {[...Array(4)].map((_, i) => (
+                                        <div className="flex justify-between gap-2 px-1">
+                                            {[...Array(6)].map((_, i) => (
                                                 <input
                                                     key={i}
                                                     type="tel"
                                                     maxLength={1}
-                                                    className="w-14 h-16 bg-white border-2 border-gray-200 rounded-3xl text-center text-2xl font-black outline-none shadow-[0_18px_45px_rgba(15,23,42,0.35)] focus:bg-white focus:border-[var(--theme-color)] focus:shadow-[0_24px_65px_rgba(15,23,42,0.55)] transition-all"
+                                                    className="w-10 h-14 md:w-12 md:h-16 bg-white border-2 border-gray-200 rounded-2xl text-center text-xl font-black outline-none shadow-[0_18px_45px_rgba(15,23,42,0.25)] focus:bg-white focus:border-[var(--theme-color)] focus:shadow-[0_24px_65px_rgba(15,23,42,0.35)] transition-all"
                                                     style={{ color: activeCategory.theme }}
                                                     onKeyDown={(e) => {
                                                         if (e.key === 'Backspace' && !e.target.value && i > 0) {
@@ -511,8 +528,8 @@ const CustomerAuth = () => {
                                                         }
                                                     }}
                                                     onChange={(e) => {
-                                                        const val = e.target.value;
-                                                        if (val && i < 3) (e.target.nextElementSibling).focus();
+                                                        const val = e.target.value.replace(/\D/g, '');
+                                                        if (val && i < 5) (e.target.nextElementSibling).focus();
                                                         const otpArr = formData.otp.split('');
                                                         otpArr[i] = val;
                                                         setFormData({ ...formData, otp: otpArr.join('') });

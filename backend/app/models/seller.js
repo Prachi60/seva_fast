@@ -146,6 +146,33 @@ const sellerSchema = new mongoose.Schema(
       ref: "Zone",
       default: null,
     },
+    acceptsPhotoOrders: {
+      type: Boolean,
+      default: false,
+    },
+    commissionModel: {
+      type: String,
+      enum: ['CATEGORY_WISE', 'ONE_TIME'],
+      default: 'CATEGORY_WISE',
+    },
+    oneTimeChargeAmount: {
+      type: Number,
+      default: 0,
+    },
+    oneTimeChargePaid: {
+      type: Boolean,
+      default: false,
+    },
+    oneTimeChargeInterval: {
+      type: String,
+      enum: ['monthly', 'quarterly', 'half_yearly', 'yearly'],
+      default: 'monthly',
+    },
+    categoryCommissionOverrides: {
+      type: Map,
+      of: Number,
+      default: {},
+    },
     lastLogin: Date,
   },
   { timestamps: true },

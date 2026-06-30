@@ -33,8 +33,9 @@ function legacyFromWorkflow(workflowStatus) {
     case WORKFLOW_STATUS.DELIVERY_SEARCH:
       return "confirmed";
     case WORKFLOW_STATUS.DELIVERY_ASSIGNED:
-    case WORKFLOW_STATUS.PICKUP_READY:
       return "confirmed";
+    case WORKFLOW_STATUS.PICKUP_READY:
+      return "packed";
     case WORKFLOW_STATUS.OUT_FOR_DELIVERY:
       return "out_for_delivery";
     case WORKFLOW_STATUS.DELIVERED:
@@ -62,11 +63,11 @@ export function getLegacyStatusFromOrder(order) {
     if (workflowStatus === WORKFLOW_STATUS.DELIVERED) {
       return "delivered";
     }
-    if (
-      workflowStatus === WORKFLOW_STATUS.DELIVERY_ASSIGNED ||
-      workflowStatus === WORKFLOW_STATUS.PICKUP_READY
-    ) {
+    if (workflowStatus === WORKFLOW_STATUS.DELIVERY_ASSIGNED) {
       return "confirmed";
+    }
+    if (workflowStatus === WORKFLOW_STATUS.PICKUP_READY) {
+      return "packed";
     }
 
     return legacyFromWorkflow(workflowStatus);

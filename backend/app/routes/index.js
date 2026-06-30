@@ -39,6 +39,7 @@ const setupRoutes = (app) => {
     app.use("/metrics", metricsRoute);
 
     router.use("/customer", customerRoute);
+    router.use("/auth/otp", authOtpRoute);
     router.use("/delivery", deliveryRoute);
     router.use("/admin/categories", categoryRoute);
     router.use("/admin", adminRoute);
@@ -56,7 +57,6 @@ const setupRoutes = (app) => {
     router.use("/", offerRoute);
     router.use("/", couponRoute);
     router.use("/notifications", notificationRoute);
-    router.use("/auth/otp", authOtpRoute);
     router.use("/push", pushRoute);
     router.use("/tickets", ticketRoute);
     router.use("/reviews", reviewRoute);

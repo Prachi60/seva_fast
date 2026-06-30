@@ -36,7 +36,7 @@ export function legacyStatusFromWorkflow(workflowStatus) {
     case WORKFLOW_STATUS.DELIVERY_ASSIGNED:
       return "confirmed";
     case WORKFLOW_STATUS.PICKUP_READY:
-      return "confirmed";
+      return "packed";
     case WORKFLOW_STATUS.OUT_FOR_DELIVERY:
       return "out_for_delivery";
     case WORKFLOW_STATUS.DELIVERED:
@@ -55,7 +55,7 @@ export function workflowFromLegacyStatus(legacy) {
   const s = (legacy || "").toLowerCase();
   if (s === "pending") return WORKFLOW_STATUS.SELLER_PENDING;
   if (s === "confirmed") return WORKFLOW_STATUS.DELIVERY_SEARCH;
-  if (s === "packed") return WORKFLOW_STATUS.DELIVERY_ASSIGNED;
+  if (s === "packed") return WORKFLOW_STATUS.PICKUP_READY;
   if (s === "out_for_delivery") return WORKFLOW_STATUS.OUT_FOR_DELIVERY;
   if (s === "delivered") return WORKFLOW_STATUS.DELIVERED;
   if (s === "cancelled") return WORKFLOW_STATUS.CANCELLED;

@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import Card from '@shared/components/ui/Card';
 import Button from '@shared/components/ui/Button';
 import Badge from '@shared/components/ui/Badge';
@@ -19,7 +20,8 @@ import {
     HiOutlineInboxStack,
     HiOutlineMapPin,
     HiOutlinePhone,
-    HiOutlineCalendarDays
+    HiOutlineCalendarDays,
+    HiOutlineDocumentText
 } from 'react-icons/hi2';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
@@ -64,7 +66,37 @@ const Orders = () => {
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(20);
     const [total, setTotal] = useState(0);
+    const [deliveryBoys, setDeliveryBoys] = useState([]);
     const hasMountedRef = useRef(false);
+
+    const fetchDeliveryBoys = async () => {
+        try {
+            const response = await sellerApi.getDeliveryPartners({ verified: 'true', status: 'online' });
+            const payload = response.data.result || {};
+            const list = Array.isArray(payload.items) ? payload.items : (response.data.results || []);
+            setDeliveryBoys(list);
+        } catch (error) {
+            console.error("Failed to fetch delivery partners:", error);
+        }
+    };
+
+    useEffect(() => {
+        fetchDeliveryBoys();
+    }, []);
+
+    const isAnyModalOpen = isDetailsModalOpen || isQuickViewModalOpen;
+
+    useEffect(() => {
+        if (!isAnyModalOpen) return undefined;
+        const prevBodyOverflow = document.body.style.overflow;
+        const prevHtmlOverflow = document.documentElement.style.overflow;
+        document.body.style.overflow = 'hidden';
+        document.documentElement.style.overflow = 'hidden';
+        return () => {
+            document.body.style.overflow = prevBodyOverflow;
+            document.documentElement.style.overflow = prevHtmlOverflow;
+        };
+    }, [isAnyModalOpen]);
 
     // Initial load: show full-page loader once
     useEffect(() => {
@@ -125,6 +157,7 @@ const Orders = () => {
                     image: item.image
                 })),
                 total: order.pricing?.total || 0,
+                pricing: order.pricing || null,
                 status: getLegacyStatusFromOrder(order),
                 workflowStatus: order.workflowStatus,
                 workflowVersion: order.workflowVersion,
@@ -140,7 +173,14 @@ const Orders = () => {
                 location: order.address?.location || null,
                 payment: order.payment?.method === 'cash' || order.payment?.method === 'cod'
                     ? 'Cash on Delivery'
-                    : 'Online Paid'
+                    : 'Online Paid',
+                deliveryBoy: order.deliveryBoy
+                    ? {
+                        _id: order.deliveryBoy._id || order.deliveryBoy,
+                        name: order.deliveryBoy.name,
+                        phone: order.deliveryBoy.phone,
+                    }
+                    : null,
             }));
 
             setOrders(formattedOrders);
@@ -236,6 +276,331 @@ const Orders = () => {
     const handleViewDetails = (order) => {
         setSelectedOrder(order);
         setIsDetailsModalOpen(true);
+        fetchDeliveryBoys();
+    };
+
+    const handleThermalPrint = (order) => {
+        const printWindow = window.open('', '_blank', 'width=350,height=600');
+        if (!printWindow) {
+            showToast("Please allow popups to print receipt", "warning");
+            return;
+        }
+
+        const itemsHtml = order.items.map(item => {
+            const name = item.name.length > 22 ? item.name.substring(0, 20) + '..' : item.name;
+            const qtyStr = `x${item.qty}`;
+            const priceStr = `₹${(item.price * item.qty).toFixed(0)}`;
+            const left = `${name} ${qtyStr}`;
+            const spacesCount = Math.max(1, 32 - left.length - priceStr.length);
+            const spaces = ' '.repeat(spacesCount);
+            return `<div style="font-family: monospace; font-size: 12px; white-space: pre;">${left}${spaces}${priceStr}</div>`;
+        }).join('');
+
+        const subtotal = order.pricing?.subtotal || (order.total - (order.pricing?.deliveryFee || 0));
+        const deliveryFee = order.pricing?.deliveryFee || 0;
+        const platformFee = order.pricing?.platformFee || 0;
+        const gst = order.pricing?.gst || 0;
+        const tip = order.pricing?.tip || 0;
+        const discount = order.pricing?.discount || 0;
+        const walletAmount = order.pricing?.walletAmount || 0;
+        const total = order.total;
+
+        const formatRow = (label, value) => {
+            const spacesCount = Math.max(1, 32 - label.length - value.length);
+            const spaces = ' '.repeat(spacesCount);
+            return `<div style="font-family: monospace; font-size: 12px; white-space: pre;">${label}${spaces}${value}</div>`;
+        };
+
+        const formatBoldRow = (label, value) => {
+            const spacesCount = Math.max(1, 32 - label.length - value.length);
+            const spaces = ' '.repeat(spacesCount);
+            return `<div style="font-family: monospace; font-size: 13px; font-weight: bold; white-space: pre;">${label}${spaces}${value}</div>`;
+        };
+
+        let pricingRows = '';
+        pricingRows += formatRow('Subtotal:', `₹${subtotal.toFixed(0)}`);
+        if (deliveryFee > 0) {
+            pricingRows += formatRow('Delivery Fee:', `₹${deliveryFee.toFixed(0)}`);
+        }
+        if (platformFee > 0) {
+            pricingRows += formatRow('Platform Fee:', `₹${platformFee.toFixed(0)}`);
+        }
+        if (gst > 0) {
+            pricingRows += formatRow('Tax (GST):', `₹${gst.toFixed(0)}`);
+        }
+        if (tip > 0) {
+            pricingRows += formatRow('Tip:', `₹${tip.toFixed(0)}`);
+        }
+        if (discount > 0) {
+            pricingRows += formatRow('Discount:', `-₹${discount.toFixed(0)}`);
+        }
+        if (walletAmount > 0) {
+            pricingRows += formatRow('Wallet Used:', `-₹${walletAmount.toFixed(0)}`);
+        }
+
+        const html = `
+            <html>
+            <head>
+                <title>Receipt ${order.id}</title>
+                <style>
+                    @page {
+                        size: 80mm auto;
+                        margin: 0;
+                    }
+                    body {
+                        width: 72mm;
+                        margin: 0 auto;
+                        padding: 10px 2px;
+                        font-family: 'Courier New', Courier, monospace;
+                        font-size: 12px;
+                        line-height: 1.3;
+                        color: #000;
+                        background-color: #fff;
+                    }
+                    .text-center { text-align: center; }
+                    .bold { font-weight: bold; }
+                    .divider {
+                        margin: 6px 0;
+                        border-top: 1px dashed #000;
+                    }
+                    .title {
+                        font-size: 16px;
+                        font-weight: bold;
+                        margin-bottom: 2px;
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="text-center title">SEVA FAST</div>
+                <div class="text-center bold" style="font-size: 11px;">ORDER RECEIPT</div>
+                <div class="divider"></div>
+                <div style="font-family: monospace;"><strong>Order:</strong> #${order.id}</div>
+                <div style="font-family: monospace;"><strong>Status:</strong> ${order.status.toUpperCase()}</div>
+                <div style="font-family: monospace;"><strong>Date:</strong> ${order.date} ${order.time}</div>
+                <div style="font-family: monospace;"><strong>Payment:</strong> ${order.payment}</div>
+                <div class="divider"></div>
+                <div style="font-family: monospace;"><strong>Customer:</strong> ${order.customer.name}</div>
+                <div style="font-family: monospace;"><strong>Phone:</strong> ${order.customer.phone}</div>
+                <div style="word-break: break-all; font-family: monospace;"><strong>Addr:</strong> ${order.address}</div>
+                <div class="divider"></div>
+                <div class="bold" style="margin-bottom: 4px; font-family: monospace;">ITEMS</div>
+                ${itemsHtml}
+                <div class="divider"></div>
+                ${pricingRows}
+                <div class="divider"></div>
+                ${formatBoldRow('GRAND TOTAL:', '₹' + total.toFixed(0))}
+                <div class="divider"></div>
+                <div class="text-center" style="margin-top: 15px; font-size: 10px; font-family: monospace;">Thank you for ordering!</div>
+                <script>
+                    window.onload = function() {
+                        window.print();
+                        setTimeout(function() { window.close(); }, 500);
+                    }
+                </script>
+            </body>
+            </html>
+        `;
+
+        printWindow.document.write(html);
+        printWindow.document.close();
+    };
+
+    const handleNormalPrint = (order) => {
+        const printWindow = window.open('', '_blank');
+        if (!printWindow) {
+            showToast("Please allow popups to print invoice", "warning");
+            return;
+        }
+
+        const itemsHtml = order.items.map((item, index) => {
+            const price = item.price;
+            const total = item.price * item.qty;
+            return `
+                <tr>
+                    <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;">${index + 1}</td>
+                    <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;">
+                        <div style="font-weight: bold; color: #1e293b;">${item.name}</div>
+                    </td>
+                    <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; text-align: center;">${item.qty}</td>
+                    <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; text-align: right;">₹${price.toFixed(2)}</td>
+                    <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; text-align: right; font-weight: bold;">₹${total.toFixed(2)}</td>
+                </tr>
+            `;
+        }).join('');
+
+        const subtotal = order.pricing?.subtotal || (order.total - (order.pricing?.deliveryFee || 0));
+        const deliveryFee = order.pricing?.deliveryFee || 0;
+        const platformFee = order.pricing?.platformFee || 0;
+        const gst = order.pricing?.gst || 0;
+        const tip = order.pricing?.tip || 0;
+        const discount = order.pricing?.discount || 0;
+        const walletAmount = order.pricing?.walletAmount || 0;
+
+        const html = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Invoice - ${order.id}</title>
+                <style>
+                    body {
+                        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+                        color: #334155;
+                        line-height: 1.5;
+                        margin: 0;
+                        padding: 40px;
+                        background: #fff;
+                    }
+                    .invoice-box {
+                        max-width: 800px;
+                        margin: auto;
+                        border: 1px solid #e2e8f0;
+                        padding: 40px;
+                        border-radius: 8px;
+                    }
+                    .header {
+                        display: flex;
+                        justify-content: space-between;
+                        margin-bottom: 40px;
+                    }
+                    .header-left h1 {
+                        margin: 0;
+                        font-size: 28px;
+                        color: #0f172a;
+                    }
+                    .header-right {
+                        text-align: right;
+                    }
+                    .details {
+                        display: flex;
+                        justify-content: space-between;
+                        margin-bottom: 40px;
+                        background: #f8fafc;
+                        padding: 20px;
+                        border-radius: 8px;
+                    }
+                    .details h3 {
+                        margin-top: 0;
+                        margin-bottom: 10px;
+                        font-size: 14px;
+                        text-transform: uppercase;
+                        color: #64748b;
+                        letter-spacing: 0.05em;
+                    }
+                    table {
+                        width: 100%;
+                        border-collapse: collapse;
+                        margin-bottom: 40px;
+                    }
+                    th {
+                        background: #f1f5f9;
+                        padding: 12px;
+                        text-align: left;
+                        font-size: 13px;
+                        text-transform: uppercase;
+                        color: #475569;
+                        border-bottom: 2px solid #cbd5e1;
+                    }
+                    .totals {
+                        width: 300px;
+                        margin-left: auto;
+                    }
+                    .totals-row {
+                        display: flex;
+                        justify-content: space-between;
+                        padding: 8px 0;
+                        border-bottom: 1px solid #f1f5f9;
+                    }
+                    .totals-row.grand-total {
+                        font-weight: bold;
+                        font-size: 18px;
+                        color: #0f172a;
+                        border-top: 2px solid #e2e8f0;
+                        border-bottom: none;
+                        padding-top: 12px;
+                        margin-top: 12px;
+                    }
+                    @media print {
+                        body { padding: 0; }
+                        .invoice-box { border: none; padding: 0; }
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="invoice-box">
+                    <div class="header">
+                        <div class="header-left">
+                            <h1>SEVA FAST</h1>
+                            <p style="margin: 5px 0 0 0; color: #64748b;">Order Invoice</p>
+                        </div>
+                        <div class="header-right">
+                            <h2 style="margin: 0; color: #0f172a; font-size: 16px;">Invoice #${order.id}</h2>
+                            <p style="margin: 5px 0 0 0;">Date: ${order.date} ${order.time}</p>
+                            <p style="margin: 5px 0 0 0;">Payment: <strong>${order.payment}</strong></p>
+                            <p style="margin: 5px 0 0 0;">Status: <span style="text-transform: uppercase;">${order.status}</span></p>
+                        </div>
+                    </div>
+                    
+                    <div class="details">
+                        <div>
+                            <h3>Billed To</h3>
+                            <div style="font-weight: bold; color: #0f172a; margin-bottom: 4px;">${order.customer.name}</div>
+                            <div>Phone: ${order.customer.phone}</div>
+                        </div>
+                        <div style="text-align: right; max-width: 300px;">
+                            <h3>Delivery Address</h3>
+                            <div>${order.address}</div>
+                        </div>
+                    </div>
+
+                    <table>
+                        <thead>
+                            <tr>
+                                <th style="width: 5%">#</th>
+                                <th style="width: 50%">Item Description</th>
+                                <th style="width: 15%; text-align: center;">Qty</th>
+                                <th style="width: 15%; text-align: right;">Unit Price</th>
+                                <th style="width: 15%; text-align: right;">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${itemsHtml}
+                        </tbody>
+                    </table>
+
+                    <div class="totals">
+                        <div class="totals-row">
+                            <span>Subtotal</span>
+                            <span>₹${subtotal.toFixed(2)}</span>
+                        </div>
+                        ${deliveryFee > 0 ? `<div class="totals-row"><span>Delivery Fee</span><span>₹${deliveryFee.toFixed(2)}</span></div>` : ''}
+                        ${platformFee > 0 ? `<div class="totals-row"><span>Platform Fee</span><span>₹${platformFee.toFixed(2)}</span></div>` : ''}
+                        ${gst > 0 ? `<div class="totals-row"><span>Tax (GST)</span><span>₹${gst.toFixed(2)}</span></div>` : ''}
+                        ${tip > 0 ? `<div class="totals-row"><span>Tip</span><span>₹${tip.toFixed(2)}</span></div>` : ''}
+                        ${discount > 0 ? `<div class="totals-row" style="color: #10b981;"><span>Discount</span><span>-₹${discount.toFixed(2)}</span></div>` : ''}
+                        ${walletAmount > 0 ? `<div class="totals-row" style="color: #10b981;"><span>Wallet Used</span><span>-₹${walletAmount.toFixed(2)}</span></div>` : ''}
+                        
+                        <div class="totals-row grand-total">
+                            <span>Grand Total</span>
+                            <span>₹${Number(order.total).toFixed(2)}</span>
+                        </div>
+                    </div>
+                    
+                    <div style="margin-top: 50px; text-align: center; color: #94a3b8; font-size: 14px; border-top: 1px solid #e2e8f0; padding-top: 20px;">
+                        Thank you for your business! For any queries, please contact support.
+                    </div>
+                </div>
+                <script>
+                    window.onload = function() {
+                        window.print();
+                        setTimeout(function() { window.close(); }, 500);
+                    }
+                </script>
+            </body>
+            </html>
+        `;
+
+        printWindow.document.write(html);
+        printWindow.document.close();
     };
 
     const handleStatusUpdate = async (orderId, newStatus) => {
@@ -249,6 +614,26 @@ const Orders = () => {
         } catch (error) {
             console.error("Failed to update status:", error);
             showToast("Failed to update status", "error");
+        }
+    };
+
+    const handleAssignDeliveryBoy = async (orderId, deliveryBoyId) => {
+        if (!deliveryBoyId) return;
+        try {
+            await sellerApi.updateOrderStatus(orderId, { deliveryBoyId });
+            showToast("Delivery partner assigned successfully", "success");
+            const assignedBoy = deliveryBoys.find(b => b._id === deliveryBoyId || b.id === deliveryBoyId);
+            const deliveryBoy = assignedBoy
+                ? { _id: assignedBoy._id, name: assignedBoy.name, phone: assignedBoy.phone }
+                : null;
+            setOrders(prev => prev.map(o => (o.id === orderId ? { ...o, deliveryBoy } : o)));
+            if (selectedOrder && selectedOrder.id === orderId) {
+                setSelectedOrder({ ...selectedOrder, deliveryBoy });
+            }
+            fetchOrders(page, false);
+        } catch (error) {
+            console.error("Failed to assign delivery partner:", error);
+            showToast(error?.response?.data?.message || "Failed to assign delivery partner", "error");
         }
     };
 
@@ -522,6 +907,26 @@ const Orders = () => {
                                                         <option value="cancelled">Cancelled</option>
                                                     </select>
                                                     <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleThermalPrint(order);
+                                                        }}
+                                                        title="Thermal Print"
+                                                        className="p-2 hover:bg-slate-100 rounded-lg text-slate-600"
+                                                    >
+                                                        <HiOutlinePrinter className="h-4 w-4" />
+                                                    </button>
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleNormalPrint(order);
+                                                        }}
+                                                        title="Normal Print (A4)"
+                                                        className="p-2 hover:bg-slate-100 rounded-lg text-slate-600"
+                                                    >
+                                                        <HiOutlineDocumentText className="h-4 w-4" />
+                                                    </button>
+                                                    <button
                                                         onClick={() => handleViewDetails(order)}
                                                         className="p-2 hover:bg-slate-100 rounded-lg text-slate-600"
                                                     >
@@ -617,6 +1022,26 @@ const Orders = () => {
                                                     <td className="px-4 lg:px-6 py-3 lg:py-4 text-right">
                                                         <div className="flex items-center justify-end space-x-1.5">
                                                             <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    handleThermalPrint(order);
+                                                                }}
+                                                                title="Thermal Print"
+                                                                className="p-1.5 hover:bg-white hover:text-primary rounded-lg transition-all text-slate-600 shadow-sm ring-1 ring-slate-100"
+                                                            >
+                                                                <HiOutlinePrinter className="h-4 w-4" />
+                                                            </button>
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    handleNormalPrint(order);
+                                                                }}
+                                                                title="Normal Print (A4)"
+                                                                className="p-1.5 hover:bg-white hover:text-primary rounded-lg transition-all text-slate-600 shadow-sm ring-1 ring-slate-100"
+                                                            >
+                                                                <HiOutlineDocumentText className="h-4 w-4" />
+                                                            </button>
+                                                            <button
                                                                 onClick={() => handleViewDetails(order)}
                                                                 className="p-1.5 hover:bg-white hover:text-primary rounded-lg transition-all text-slate-600 shadow-sm ring-1 ring-slate-100"
                                                             >
@@ -695,9 +1120,10 @@ const Orders = () => {
                     {/* ... (existing details modal) */}
 
                     {/* Quick View Summary Modal */}
+                    {createPortal(
                     <AnimatePresence>
                         {isQuickViewModalOpen && (
-                            <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4">
+                            <div className="fixed inset-0 z-[250] flex items-center justify-center p-3 sm:p-4 overflow-hidden overscroll-none">
                                 <motion.div
                                     initial={{ opacity: 0 }}
                                     animate={{ opacity: 1 }}
@@ -754,10 +1180,13 @@ const Orders = () => {
                                 </motion.div>
                             </div>
                         )}
-                    </AnimatePresence>
+                    </AnimatePresence>,
+                    document.body
+                    )}
+                    {createPortal(
                     <AnimatePresence>
                         {isDetailsModalOpen && selectedOrder && (
-                            <div className="fixed inset-0 z-[100] flex items-stretch sm:items-center justify-center p-3 sm:p-6 lg:p-12">
+                            <div className="fixed inset-0 z-[250] flex items-stretch sm:items-center justify-center p-3 sm:p-6 lg:p-12 overflow-hidden overscroll-none">
                                 <motion.div
                                     initial={{ opacity: 0 }}
                                     animate={{ opacity: 1 }}
@@ -842,6 +1271,63 @@ const Orders = () => {
                                                         <p className="text-xs font-semibold text-slate-600 mt-0.5">{selectedOrder.customer.phone}</p>
                                                     </div>
                                                 </div>
+                                                {selectedOrder.status.toLowerCase() !== 'pending' && selectedOrder.status.toLowerCase() !== 'cancelled' && (
+                                                    <div>
+                                                        <h4 className="text-xs font-black text-slate-600 uppercase tracking-widest mb-2 flex items-center gap-2">
+                                                            <HiOutlineTruck className="h-3 w-3 text-primary" /> Delivery Partner
+                                                        </h4>
+                                                        <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100 shadow-sm space-y-2">
+                                                            {selectedOrder.deliveryBoy ? (
+                                                                <div className="flex flex-col gap-1.5">
+                                                                    <div className="flex justify-between items-center">
+                                                                        <div>
+                                                                            <p className="text-xs font-bold text-slate-800">{selectedOrder.deliveryBoy.name}</p>
+                                                                            <p className="text-[11px] font-semibold text-slate-600">{selectedOrder.deliveryBoy.phone}</p>
+                                                                        </div>
+                                                                        <span className="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">Assigned</span>
+                                                                    </div>
+                                                                    <div className="h-px bg-slate-200 my-1" />
+                                                                    <div className="relative">
+                                                                        <select
+                                                                            value={selectedOrder.deliveryBoy._id || selectedOrder.deliveryBoy.id || ''}
+                                                                            onChange={(e) => handleAssignDeliveryBoy(selectedOrder.id, e.target.value)}
+                                                                            className="w-full text-xs pl-3 pr-8 py-2 bg-white rounded-xl border border-slate-200 appearance-none cursor-pointer focus:ring-2 focus:ring-brand-200 outline-none shadow-sm font-semibold text-slate-800"
+                                                                        >
+                                                                            <option value={selectedOrder.deliveryBoy._id || selectedOrder.deliveryBoy.id || ''}>
+                                                                                {selectedOrder.deliveryBoy.name} ({selectedOrder.deliveryBoy.phone})
+                                                                            </option>
+                                                                            <option value="" disabled>Change Rider...</option>
+                                                                            {deliveryBoys
+                                                                                .filter(boy => (boy._id || boy.id) !== (selectedOrder.deliveryBoy._id || selectedOrder.deliveryBoy.id))
+                                                                                .map(boy => (
+                                                                                    <option key={boy._id} value={boy._id}>{boy.name} ({boy.phone})</option>
+                                                                                ))}
+                                                                        </select>
+                                                                        <HiOutlineChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 pointer-events-none opacity-60" />
+                                                                    </div>
+                                                                </div>
+                                                            ) : (
+                                                                <div className="relative">
+                                                                    <select
+                                                                        value=""
+                                                                        onChange={(e) => handleAssignDeliveryBoy(selectedOrder.id, e.target.value)}
+                                                                        className="w-full text-xs pl-3 pr-8 py-2 bg-white rounded-xl border border-slate-200 appearance-none cursor-pointer focus:ring-2 focus:ring-brand-200 outline-none shadow-sm font-semibold text-slate-800"
+                                                                    >
+                                                                        <option value="">Assign Rider...</option>
+                                                                        {deliveryBoys.length === 0 ? (
+                                                                            <option value="" disabled>No online riders available</option>
+                                                                        ) : (
+                                                                            deliveryBoys.map(boy => (
+                                                                                <option key={boy._id} value={boy._id}>{boy.name} ({boy.phone})</option>
+                                                                            ))
+                                                                        )}
+                                                                    </select>
+                                                                    <HiOutlineChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 pointer-events-none opacity-60" />
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                )}
                                                 {selectedOrder.deliveryType === "scheduled" && (
                                                     <div>
                                                         <h4 className="text-xs font-black text-slate-600 uppercase tracking-widest mb-2 flex items-center gap-2">
@@ -915,7 +1401,13 @@ const Orders = () => {
                                     </div>
 
                                     {/* Modal Footer */}
-                                    <div className="px-4 py-3 sm:px-6 sm:py-4 border-t border-slate-100 bg-slate-50 flex flex-col sm:flex-row gap-3 sm:gap-0 sm:items-center justify-end">
+                                    <div className="px-4 py-3 sm:px-6 sm:py-4 border-t border-slate-100 bg-slate-50 flex flex-col sm:flex-row gap-3 sm:gap-0 sm:items-center justify-between">
+                                        <button
+                                            onClick={() => handleThermalPrint(selectedOrder)}
+                                            className="flex items-center gap-1.5 px-4 py-2.5 bg-slate-800 text-white rounded-xl text-xs font-bold hover:bg-slate-700 transition-all shadow-sm"
+                                        >
+                                            <HiOutlinePrinter size={16} /> THERMAL PRINT
+                                        </button>
                                         <div className="flex gap-2 items-center">
                                             <button onClick={() => setIsDetailsModalOpen(false)} className="px-6 py-2.5 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-100 transition-all">CLOSE</button>
                                             <div className="relative inline-block w-40">
@@ -947,7 +1439,9 @@ const Orders = () => {
                                 </motion.div>
                             </div>
                         )}
-                    </AnimatePresence>
+                    </AnimatePresence>,
+                    document.body
+                    )}
                 </>
             )}
         </div>

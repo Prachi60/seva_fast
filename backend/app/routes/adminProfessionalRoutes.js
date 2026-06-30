@@ -11,6 +11,11 @@ import {
     adminApproveAd,
     adminRejectAd,
 } from "../controller/professionalAdController.js";
+import {
+    adminGetPlatformAds,
+    adminApprovePlatformAd,
+    adminRejectPlatformAd,
+} from "../controller/platformAdController.js";
 
 const router = express.Router();
 
@@ -29,4 +34,10 @@ router.get("/ads", adminGetAds);
 router.patch("/ads/:id/approve", adminApproveAd);
 router.patch("/ads/:id/reject", adminRejectAd);
 
+// Separated Platform Ad moderation routes
+router.get("/platform-ads", adminGetPlatformAds);
+router.patch("/platform-ads/:id/approve", adminApprovePlatformAd);
+router.patch("/platform-ads/:id/reject", adminRejectPlatformAd);
+
 export default router;
+

@@ -36,7 +36,7 @@ const InvoiceModal = ({ isOpen, onClose, order }) => {
                             <div className="bg-slate-50 px-6 py-4 border-b border-slate-100 flex items-center justify-between">
                                 <div>
                                     <h2 className="text-lg font-black text-slate-800">Invoice</h2>
-                                    <p className="text-xs text-slate-500 font-medium">#{order.id}</p>
+                                    <p className="text-xs text-slate-500 font-medium">#{order.orderId || order.id}</p>
                                 </div>
                                 <button onClick={onClose} className="p-2 bg-white rounded-full hover:bg-slate-200 transition-colors shadow-sm border border-slate-100">
                                     <X size={20} className="text-slate-500" />
@@ -52,7 +52,7 @@ const InvoiceModal = ({ isOpen, onClose, order }) => {
                                     </div>
                                     <div className="text-right">
                                         <p className="text-sm font-bold text-slate-800">Bill To:</p>
-                                        <p className="text-xs text-slate-500 mt-1">{order.address.name}<br />{order.address.phone}</p>
+                                        <p className="text-xs text-slate-500 mt-1">{order.address?.name}<br />{order.address?.phone}</p>
                                     </div>
                                 </div>
 
@@ -66,10 +66,10 @@ const InvoiceModal = ({ isOpen, onClose, order }) => {
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-50">
-                                            {order.items.map((item, idx) => (
+                                            {order.items?.map((item, idx) => (
                                                 <tr key={idx}>
                                                     <td className="px-4 py-3 text-slate-700 font-medium">{item.name}</td>
-                                                    <td className="px-4 py-3 text-slate-500 text-right">{item.qty}</td>
+                                                    <td className="px-4 py-3 text-slate-500 text-right">{item.quantity || item.qty}</td>
                                                     <td className="px-4 py-3 text-slate-800 font-bold text-right">₹{item.price}</td>
                                                 </tr>
                                             ))}
@@ -80,28 +80,32 @@ const InvoiceModal = ({ isOpen, onClose, order }) => {
                                 <div className="space-y-2 pt-2 border-t border-slate-100">
                                     <div className="flex justify-between text-sm text-slate-500">
                                         <span>Subtotal</span>
-                                        <span>₹{order.bill.itemTotal}</span>
+                                        <span>₹{order.pricing?.subtotal ?? order.bill?.itemTotal ?? 0}</span>
                                     </div>
                                     <div className="flex justify-between text-sm text-slate-500">
                                         <span>Tax</span>
-                                        <span>₹{order.bill.tax}</span>
+                                        <span>₹{order.pricing?.gst ?? order.bill?.tax ?? 0}</span>
                                     </div>
+                                    {order.pricing?.deliveryFee > 0 && (
+                                        <div className="flex justify-between text-sm text-slate-500">
+                                            <span>Delivery Fee</span>
+                                            <span>₹{order.pricing.deliveryFee}</span>
+                                        </div>
+                                    )}
+                                    {order.pricing?.tip > 0 && (
+                                        <div className="flex justify-between text-sm text-slate-500">
+                                            <span>Tip</span>
+                                            <span>₹{order.pricing.tip}</span>
+                                        </div>
+                                    )}
                                     <div className="flex justify-between text-base font-black text-slate-800 pt-2 border-t border-slate-100">
                                         <span>Total Paid</span>
-                                        <span>₹{order.bill.grandTotal}</span>
+                                        <span>₹{order.pricing?.total ?? order.bill?.grandTotal ?? 0}</span>
                                     </div>
                                 </div>
                             </div>
 
-                            {/* Footer Actions */}
-                            <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex gap-3">
-                                <button onClick={handlePrint} className="flex-1 py-3 text-white rounded-xl font-bold flex items-center justify-center gap-2 transition-colors shadow-lg" style={{ backgroundColor: primaryColor }}>
-                                    <Printer size={18} /> Print
-                                </button>
-                                <button className="flex-1 py-3 bg-white text-slate-700 border border-slate-200 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-slate-50 transition-colors">
-                                    <Download size={18} /> Save PDF
-                                </button>
-                            </div>
+
 
                             <style>
                                 {`

@@ -84,13 +84,15 @@ export const getSellers = async (req, res) => {
 export const updateSellerDetails = async (req, res) => {
   try {
     const { id } = req.params;
-    const { commissionModel, oneTimeChargePaid, oneTimeChargeAmount, categoryCommissionOverrides } = req.body;
+    const { commissionModel, oneTimeChargePaid, oneTimeChargeAmount, oneTimeChargeInterval, categoryCommissionOverrides, acceptsPhotoOrders } = req.body;
     
     const updateData = {};
     if (commissionModel !== undefined) updateData.commissionModel = commissionModel;
     if (oneTimeChargePaid !== undefined) updateData.oneTimeChargePaid = oneTimeChargePaid;
     if (oneTimeChargeAmount !== undefined) updateData.oneTimeChargeAmount = Number(oneTimeChargeAmount);
+    if (oneTimeChargeInterval !== undefined) updateData.oneTimeChargeInterval = oneTimeChargeInterval;
     if (categoryCommissionOverrides !== undefined) updateData.categoryCommissionOverrides = categoryCommissionOverrides;
+    if (acceptsPhotoOrders !== undefined) updateData.acceptsPhotoOrders = acceptsPhotoOrders;
 
     const seller = await Seller.findByIdAndUpdate(id, { $set: updateData }, { new: true });
     

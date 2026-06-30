@@ -230,14 +230,8 @@ export const getProducts = async (req, res) => {
 
     const requestedSellerIds = parseSellerIdFilters({ sellerId, sellerIds });
     const coords = parseCustomerCoordinates({ lat, lng });
-    const shouldApplyLocationFilter = enforceRadius || coords.valid;
-    if (enforceRadius && !coords.valid) {
-      return handleResponse(
-        res,
-        400,
-        "lat and lng are required for customer product visibility",
-      );
-    }
+    const shouldApplyLocationFilter = coords.valid;
+
     if (shouldApplyLocationFilter) {
       const nearbySellerIds = await getNearbySellerIdsForCustomer(
         coords.lat,
@@ -263,6 +257,10 @@ export const getProducts = async (req, res) => {
         } else {
           query.deliveryType = "scheduled";
         }
+      }
+    } else {
+      if (enforceRadius) {
+        query.deliveryType = "scheduled";
       }
     }
 
@@ -922,14 +920,7 @@ export const getProductById = async (req, res) => {
 
     let nearbySellerSet = null;
     const coords = parseCustomerCoordinates(req.query || {});
-    if (enforceRadius) {
-      if (!coords.valid) {
-        return handleResponse(
-          res,
-          400,
-          "lat and lng are required for customer product visibility",
-        );
-      }
+    if (enforceRadius && coords.valid) {
       const nearbySellerIds = await getNearbySellerIdsForCustomer(
         coords.lat,
         coords.lng,

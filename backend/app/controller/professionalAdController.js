@@ -4,11 +4,13 @@ import Setting from "../models/setting.js";
 import User from "../models/customer.js";
 import Transaction from "../models/transaction.js";
 import handleResponse from "../utils/helper.js";
+import Razorpay from "razorpay";
+import crypto from "crypto";
 
 export const createAd = async (req, res) => {
     try {
         const ownerId = req.user.id;
-        const { name, phone, email, profession, categoryId, categoryIds, experienceYears, description, address, city, lat, lng } = req.body;
+        const { name, phone, email, profession, categoryId, categoryIds, experienceYears, description, address, city, lat, lng, mediaUrl, mediaType } = req.body;
 
         const ids = Array.isArray(categoryIds) && categoryIds.length > 0 ? categoryIds : [categoryId].filter(Boolean);
         if (ids.length === 0) {
@@ -63,6 +65,8 @@ export const createAd = async (req, res) => {
             } : undefined,
             expiresAt: isFree ? expiryDate : undefined,
             isPublished: false,
+            mediaUrl: mediaUrl || "",
+            mediaType: mediaType || "none",
         });
 
         const successMsg = isFree
@@ -94,7 +98,7 @@ export const getMyAd = async (req, res) => {
 export const updateMyAd = async (req, res) => {
     try {
         const ownerId = req.user.id;
-        const { name, phone, email, profession, categoryId, categoryIds, experienceYears, description, address, city, lat, lng } = req.body;
+        const { name, phone, email, profession, categoryId, categoryIds, experienceYears, description, address, city, lat, lng, mediaUrl, mediaType } = req.body;
 
         const ad = await ProfessionalAd.findOne({ owner: ownerId });
         if (!ad) {
@@ -144,7 +148,7 @@ export const updateMyAd = async (req, res) => {
                      ad.expiresAt = null;
                  }
              }
-        }
+         }
 
         if (name) ad.name = name.trim();
         if (phone) ad.phone = phone.trim();
@@ -154,6 +158,8 @@ export const updateMyAd = async (req, res) => {
         if (description) ad.description = description.trim();
         if (address) ad.address = address.trim();
         if (city) ad.city = city.trim();
+        if (mediaUrl !== undefined) ad.mediaUrl = mediaUrl;
+        if (mediaType !== undefined) ad.mediaType = mediaType;
         if (lat !== undefined && lng !== undefined) {
             ad.location = {
                 type: "Point",
@@ -224,17 +230,19 @@ export const payMyAd = async (req, res) => {
         const validityDays = settings.professionalAdValidityDays ?? 30;
 
         let fee = 0;
+        const defaultListingFee = settings.professionalAdListingFee ?? 499;
+
         if (categories.length > 0) {
             const hasPaidCategory = categories.some(cat => cat.priceType === "paid");
             if (hasPaidCategory) {
                 const paidCategories = categories.filter(cat => cat.priceType === "paid");
-                const prices = paidCategories.map(cat => cat.price ?? settings.professionalAdListingFee ?? 499);
+                const prices = paidCategories.map(cat => cat.price ?? defaultListingFee);
                 fee = prices.reduce((sum, p) => sum + p, 0);
             } else {
                 fee = 0;
             }
         } else {
-            fee = settings.professionalAdListingFee ?? 499;
+            fee = defaultListingFee;
         }
 
         if (fee > 0) {
@@ -374,10 +382,9 @@ export const searchAds = async (req, res) => {
 export const adminGetAds = async (req, res) => {
     try {
         const { status, paymentStatus } = req.query;
-        const query = {};
+        const query = { paymentStatus: "paid" };
 
         if (status) query.approvalStatus = status;
-        if (paymentStatus) query.paymentStatus = paymentStatus;
 
         const ads = await ProfessionalAd.find(query)
             .populate("owner", "name phone email")
@@ -438,6 +445,134 @@ export const adminRejectAd = async (req, res) => {
 
         return handleResponse(res, 200, "Advertisement rejected successfully", ad);
     } catch (error) {
+        return handleResponse(res, 500, error.message);
+    }
+};
+
+const calculateListingFee = async (ad, settings) => {
+    const categoryIds = ad.categories && ad.categories.length > 0 ? ad.categories : [ad.category].filter(Boolean);
+    const categories = await ProfessionalCategory.find({ _id: { $in: categoryIds } });
+    const defaultListingFee = settings.professionalAdListingFee ?? 499;
+
+    let fee = 0;
+    if (categories.length > 0) {
+        const hasPaidCategory = categories.some(cat => cat.priceType === "paid");
+        if (hasPaidCategory) {
+            const paidCategories = categories.filter(cat => cat.priceType === "paid");
+            const prices = paidCategories.map(cat => cat.price ?? defaultListingFee);
+            fee = prices.reduce((sum, p) => sum + p, 0);
+        } else {
+            fee = 0;
+        }
+    } else {
+        fee = defaultListingFee;
+    }
+    return fee;
+};
+
+const getRazorpayInstance = () => {
+    return new Razorpay({
+        key_id: process.env.RAZORPAY_KEY_ID || 'rzp_test_S2tOuYBZiOuLb4',
+        key_secret: process.env.RAZORPAY_KEY_SECRET || 'tiR3NbQKSBa5mrdKyZbsnh7x'
+    });
+};
+
+export const initiatePayMyAd = async (req, res) => {
+    try {
+        const ownerId = req.user.id;
+        const ad = await ProfessionalAd.findOne({ owner: ownerId });
+        if (!ad) {
+            return handleResponse(res, 404, "Professional profile not found");
+        }
+
+        if (ad.paymentStatus === "paid" && ad.expiresAt && ad.expiresAt > new Date()) {
+            return handleResponse(res, 400, "Listing is already active and paid");
+        }
+
+        const settings = await Setting.findOne({}) || {};
+        const fee = await calculateListingFee(ad, settings);
+
+        if (fee <= 0) {
+            return handleResponse(res, 200, "Free listing activation, no payment required", { isFree: true });
+        }
+
+        const razorpayInstance = getRazorpayInstance();
+        const options = {
+            amount: Math.round(fee * 100), // paise
+            currency: "INR",
+            receipt: `pr_${String(ad._id).slice(-10)}_${String(Date.now()).slice(-8)}`
+        };
+
+        const order = await razorpayInstance.orders.create(options);
+        return handleResponse(res, 200, "Razorpay order initiated successfully", {
+            isFree: false,
+            orderId: order.id,
+            amount: order.amount,
+            keyId: process.env.RAZORPAY_KEY_ID || 'rzp_test_S2tOuYBZiOuLb4'
+        });
+    } catch (error) {
+        console.error("initiatePayMyAd error:", error);
+        return handleResponse(res, 500, error.message);
+    }
+};
+
+export const verifyPayMyAd = async (req, res) => {
+    try {
+        const ownerId = req.user.id;
+        const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
+
+        if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+            return handleResponse(res, 400, "Missing required Razorpay parameters");
+        }
+
+        const ad = await ProfessionalAd.findOne({ owner: ownerId });
+        if (!ad) {
+            return handleResponse(res, 404, "Professional profile not found");
+        }
+
+        // Verify signature
+        const secret = process.env.RAZORPAY_KEY_SECRET || 'tiR3NbQKSBa5mrdKyZbsnh7x';
+        const hmac = crypto.createHmac('sha256', secret);
+        hmac.update(razorpay_order_id + "|" + razorpay_payment_id);
+        const generatedSignature = hmac.digest('hex');
+
+        if (generatedSignature !== razorpay_signature) {
+            return handleResponse(res, 400, "Payment signature verification failed");
+        }
+
+        const settings = await Setting.findOne({}) || {};
+        const validityDays = settings.professionalAdValidityDays ?? 30;
+        const fee = await calculateListingFee(ad, settings);
+
+        // Update ad profile listing status
+        ad.paymentStatus = "paid";
+        ad.paymentDetails = {
+            transactionId: razorpay_payment_id,
+            amountPaid: fee,
+            paidAt: new Date(),
+        };
+
+        const expiryDate = new Date();
+        expiryDate.setDate(expiryDate.getDate() + validityDays);
+        ad.expiresAt = expiryDate;
+        await ad.save();
+
+        // Create transaction history record
+        await Transaction.create({
+            user: ownerId,
+            userModel: "User",
+            type: "Wallet Payment",
+            amount: -fee,
+            status: "Settled",
+            reference: razorpay_payment_id,
+            meta: {
+                description: `Professional Listing Advertisement Fee (Razorpay) for ${ad.profession}`,
+            },
+        });
+
+        return handleResponse(res, 200, "Listing payment verified and activated successfully", ad);
+    } catch (error) {
+        console.error("verifyPayMyAd error:", error);
         return handleResponse(res, 500, error.message);
     }
 };

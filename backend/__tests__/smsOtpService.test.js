@@ -72,7 +72,7 @@ describe("sms OTP service", () => {
     process.env.JWT_SECRET = "test-secret";
     process.env.JWT_EXPIRES_IN = "7d";
     process.env.OTP_EXPIRY_MINUTES = "5";
-    process.env.OTP_LENGTH = "4";
+    process.env.OTP_LENGTH = "6";
     process.env.OTP_MAX_FAILED_ATTEMPTS = "5";
     process.env.USE_MOCK_OTP = "true";
     process.env.USE_REAL_SMS = "false";
@@ -115,7 +115,7 @@ describe("sms OTP service", () => {
     expect(mockAxiosGet).not.toHaveBeenCalled();
     expect(result.sent).toBe(true);
     expect(result.provider).toBe("mock");
-    expect(result.mockOtp).toMatch(/^\d{4}$/);
+    expect(result.mockOtp).toMatch(/^\d{6}$/);
   });
 
   it("fails real SMS send when provider returns a DLT template error", async () => {
@@ -142,7 +142,7 @@ describe("sms OTP service", () => {
   });
 
   it("verifies a valid login OTP, deletes the session, and returns a JWT", async () => {
-    const otpHash = __testables.hashOtp("9876543210", "1234", "Customer", "LOGIN");
+    const otpHash = __testables.hashOtp("9876543210", "123456", "Customer", "LOGIN");
     const session = makeSession({ otpHash });
     const mockSelect = jest.fn().mockResolvedValue(session);
     const customer = {
@@ -165,7 +165,7 @@ describe("sms OTP service", () => {
 
     const result = await verifySmsOtp({
       mobile: "9876543210",
-      otp: "1234",
+      otp: "123456",
       userType: "Customer",
       purpose: "LOGIN",
       ipAddress: "127.0.0.1",
@@ -201,7 +201,7 @@ describe("sms OTP service", () => {
     await expect(
       verifySmsOtp({
         mobile: "9876543210",
-        otp: "1234",
+        otp: "123456",
         userType: "Customer",
         purpose: "LOGIN",
       }),
@@ -215,7 +215,7 @@ describe("sms OTP service", () => {
 
   it("increments attempts for wrong OTPs and reports attempts remaining", async () => {
     const session = makeSession({
-      otpHash: __testables.hashOtp("9876543210", "1234", "Customer", "LOGIN"),
+      otpHash: __testables.hashOtp("9876543210", "123456", "Customer", "LOGIN"),
       attempts: 1,
       maxAttempts: 5,
     });
@@ -226,7 +226,7 @@ describe("sms OTP service", () => {
     await expect(
       verifySmsOtp({
         mobile: "9876543210",
-        otp: "9999",
+        otp: "999999",
         userType: "Customer",
         purpose: "LOGIN",
       }),
@@ -243,7 +243,7 @@ describe("sms OTP service", () => {
 
   it("locks out verification after the final wrong attempt by deleting the session", async () => {
     const session = makeSession({
-      otpHash: __testables.hashOtp("9876543210", "1234", "Customer", "LOGIN"),
+      otpHash: __testables.hashOtp("9876543210", "123456", "Customer", "LOGIN"),
       attempts: 4,
       maxAttempts: 5,
     });
@@ -254,7 +254,7 @@ describe("sms OTP service", () => {
     await expect(
       verifySmsOtp({
         mobile: "9876543210",
-        otp: "9999",
+        otp: "999999",
         userType: "Customer",
         purpose: "LOGIN",
       }),

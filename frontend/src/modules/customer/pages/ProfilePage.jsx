@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
-    User, MapPin, Package, CreditCard, Wallet, ChevronRight,
+    User, MapPin, Package, CreditCard, Wallet, ChevronRight, ChevronDown,
     LogOut, ShieldCheck, Heart, HelpCircle, Info, Edit2, ChevronLeft, Bell,
     Share2, Copy, Sparkles, Camera, X, Users, Briefcase
 } from 'lucide-react';
@@ -172,7 +172,10 @@ const ProfilePage = () => {
             <div className="max-w-2xl mx-auto px-4 pt-1 relative z-20 space-y-4">
 
                 {/* User Identity Card (ATM Style) */}
-                <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white shadow-xl border border-slate-700 p-6 mb-2">
+                <div 
+                    onClick={() => setIsReferralTreeModalOpen(true)}
+                    className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white shadow-xl border border-slate-700 p-6 mb-2 cursor-pointer transition-all hover:scale-[1.01] hover:brightness-110 active:scale-[0.99]"
+                >
                     {/* Background decorations */}
                     <div className="absolute -top-24 -right-24 w-48 h-48 bg-white/10 rounded-full blur-3xl"></div>
                     <div className="absolute -bottom-24 -left-24 w-48 h-48 bg-indigo-500/20 rounded-full blur-3xl"></div>
@@ -190,13 +193,21 @@ const ProfilePage = () => {
                         {/* Right Side: Actions */}
                         <div className="flex items-center gap-2">
                             <button 
-                                onClick={handleShare}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleShare();
+                                }}
                                 className="p-1.5 rounded-full bg-white/10 hover:bg-white/20 transition-colors backdrop-blur-md cursor-pointer active:scale-95 flex items-center justify-center"
                                 title="Share"
                             >
                                 <Share2 size={14} className="text-white/90" />
                             </button>
-                            <Link to="/profile/edit" className="p-1.5 rounded-full bg-white/10 hover:bg-white/20 transition-colors backdrop-blur-md" title="Edit Profile">
+                            <Link 
+                                to="/profile/edit" 
+                                onClick={(e) => e.stopPropagation()}
+                                className="p-1.5 rounded-full bg-white/10 hover:bg-white/20 transition-colors backdrop-blur-md" 
+                                title="Edit Profile"
+                            >
                                 <Edit2 size={14} className="text-white/90" />
                             </Link>
                         </div>
@@ -225,7 +236,8 @@ const ProfilePage = () => {
                                 <p className="text-[9px] text-slate-400 uppercase tracking-widest mb-1 font-bold">Referral Code</p>
                                 {user?.referralCode ? (
                                     <div 
-                                        onClick={() => {
+                                        onClick={(e) => {
+                                            e.stopPropagation();
                                             navigator.clipboard.writeText(user.referralCode);
                                             toast.success("Referral code copied to clipboard!");
                                         }}
@@ -487,6 +499,7 @@ const CustomPhotoOrderModal = ({ isOpen, onClose }) => {
     const [city, setCity] = React.useState('');
     const [sellers, setSellers] = React.useState([]);
     const [selectedSellerId, setSelectedSellerId] = React.useState('');
+    const [isOpenDropdown, setIsOpenDropdown] = React.useState(false);
     const [notes, setNotes] = React.useState('');
     const [isUploading, setIsUploading] = React.useState(false);
     const [isSubmitting, setIsSubmitting] = React.useState(false);
@@ -579,18 +592,56 @@ const CustomPhotoOrderModal = ({ isOpen, onClose }) => {
                     </div>
                     
                     {city.length > 2 && (
-                        <div>
+                        <div className="relative">
                             <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Select Seller</label>
-                            <select 
-                                value={selectedSellerId} 
-                                onChange={(e) => setSelectedSellerId(e.target.value)}
-                                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:border-brand-500 outline-none transition-colors appearance-none"
-                            >
-                                <option value="">-- Choose a seller --</option>
-                                {sellers.map(s => (
-                                    <option key={s._id} value={s._id}>{s.name} ({s.shopName || 'Store'})</option>
-                                ))}
-                            </select>
+                            <div className="relative">
+                                <button
+                                    type="button"
+                                    onClick={() => setIsOpenDropdown(!isOpenDropdown)}
+                                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:border-brand-500 outline-none transition-colors text-left flex items-center justify-between font-semibold text-slate-700"
+                                >
+                                    <span>
+                                        {selectedSellerId 
+                                            ? `${sellers.find(s => s._id === selectedSellerId)?.name || 'Seller'} (${sellers.find(s => s._id === selectedSellerId)?.shopName || 'Store'})` 
+                                            : '-- Choose a seller --'
+                                        }
+                                    </span>
+                                    <ChevronDown size={16} className={`text-slate-400 transition-transform duration-200 ${isOpenDropdown ? 'rotate-180' : ''}`} />
+                                </button>
+
+                                {isOpenDropdown && (
+                                    <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-48 overflow-y-auto custom-scrollbar">
+                                        <div 
+                                            onClick={() => {
+                                                setSelectedSellerId('');
+                                                setIsOpenDropdown(false);
+                                            }}
+                                            className="px-4 py-2.5 hover:bg-slate-50 text-xs font-semibold text-slate-400 cursor-pointer transition-colors"
+                                        >
+                                            -- Choose a seller --
+                                        </div>
+                                        {sellers.length === 0 ? (
+                                            <div className="px-4 py-3 text-xs font-semibold text-slate-400 text-center">
+                                                No enabled sellers found in this city
+                                            </div>
+                                        ) : (
+                                            sellers.map(s => (
+                                                <div
+                                                    key={s._id}
+                                                    onClick={() => {
+                                                        setSelectedSellerId(s._id);
+                                                        setIsOpenDropdown(false);
+                                                    }}
+                                                    className="px-4 py-2.5 hover:bg-slate-50 text-sm font-semibold text-slate-700 cursor-pointer border-t border-slate-50 transition-colors flex items-center justify-between"
+                                                >
+                                                    <span>{s.name}</span>
+                                                    <span className="text-xs text-slate-400 font-normal">({s.shopName || 'Store'})</span>
+                                                </div>
+                                            ))
+                                        )}
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     )}
 

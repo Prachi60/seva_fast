@@ -5,6 +5,7 @@ const mockWalletCreate = jest.fn();
 
 const mockOrderAggregate = jest.fn();
 const mockPayoutAggregate = jest.fn();
+const mockCustomerFindOne = jest.fn();
 
 jest.unstable_mockModule("../app/models/wallet.js", () => ({
   default: {
@@ -22,6 +23,12 @@ jest.unstable_mockModule("../app/models/order.js", () => ({
 jest.unstable_mockModule("../app/models/payout.js", () => ({
   default: {
     aggregate: mockPayoutAggregate,
+  },
+}));
+
+jest.unstable_mockModule("../app/models/customer.js", () => ({
+  default: {
+    findOne: mockCustomerFindOne,
   },
 }));
 
@@ -44,6 +51,10 @@ describe("getAdminFinanceSummary", () => {
       totalDebited: 0,
       status: "ACTIVE",
       save: jest.fn(),
+    });
+
+    mockCustomerFindOne.mockReturnValue({
+      lean: jest.fn().mockResolvedValue({ walletBalance: 123 }),
     });
   });
 

@@ -114,6 +114,15 @@ const professionalAdSchema = new mongoose.Schema(
             default: false,
             index: true,
         },
+        mediaUrl: {
+            type: String,
+            default: "",
+        },
+        mediaType: {
+            type: String,
+            enum: ["image", "video", "none"],
+            default: "none",
+        },
     },
     {
         timestamps: true,

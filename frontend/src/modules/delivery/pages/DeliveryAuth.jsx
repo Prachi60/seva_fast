@@ -71,7 +71,7 @@ const DeliveryAuth = () => {
   const [dlFile, setDlFile] = useState(null);
 
   // OTP state
-  const [otp, setOtp] = useState(["", "", "", ""]);
+  const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [agreed, setAgreed] = useState(false);
   const [loading, setLoading] = useState(false);
   const [timer, setTimer] = useState(30);
@@ -136,7 +136,7 @@ const DeliveryAuth = () => {
         const res = await deliveryApi.sendSignupOtp(formData);
         toast.success(res.data?.message || "OTP sent!");
       }
-      setOtp(["", "", "", ""]);
+      setOtp(["", "", "", "", "", ""]);
       setTimer(30);
       setStep("otp");
     } catch (error) {
@@ -173,7 +173,7 @@ const DeliveryAuth = () => {
     const newOtp = [...otp];
     newOtp[index] = value;
     setOtp(newOtp);
-    if (value && index < 3) {
+    if (value && index < 5) {
       document.getElementById(`otp-${index + 1}`)?.focus();
     }
   };
@@ -187,7 +187,7 @@ const DeliveryAuth = () => {
   const switchMode = (newMode) => {
     setMode(newMode);
     setStep("form");
-    setOtp(["", "", "", ""]);
+    setOtp(["", "", "", "", "", ""]);
     setLoginPhone("");
     setSignupStep(1);
     setSignupName("");
@@ -851,7 +851,7 @@ const DeliveryAuth = () => {
 
                   {/* Back */}
                   <button
-                    onClick={() => { setStep("form"); setOtp(["", "", "", ""]); }}
+                    onClick={() => { setStep("form"); setOtp(["", "", "", "", "", ""]); }}
                     className="w-full flex items-center justify-center gap-1.5 text-gray-400 hover:text-gray-600 text-sm font-bold transition-colors"
                   >
                     <ChevronLeft className="w-4 h-4" /> Edit Phone Number

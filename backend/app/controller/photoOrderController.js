@@ -9,10 +9,14 @@ import { getIO } from "../socket/socketManager.js";
 export const getSellersByCity = async (req, res) => {
     try {
         const { city } = req.query;
-        let query = {}; // Removed isActive and isVerified for testing
+        let query = { acceptsPhotoOrders: true };
         
         if (city) {
-            query.city = new RegExp(city, 'i');
+            const cityRegex = new RegExp(city, 'i');
+            query.$or = [
+                { city: cityRegex },
+                { address: cityRegex }
+            ];
         }
 
         const sellers = await Seller.find(query)
