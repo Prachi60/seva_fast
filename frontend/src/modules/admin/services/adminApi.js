@@ -151,11 +151,14 @@ export const adminApi = {
     approveProfessionalAd: (id) => axiosInstance.patch(`/admin/professionals/ads/${id}/approve`),
     rejectProfessionalAd: (id, data) => axiosInstance.patch(`/admin/professionals/ads/${id}/reject`, data),
 
+<<<<<<< HEAD
     // Platform Ads Management
     getPlatformAds: (params) => axiosInstance.get('/admin/professionals/platform-ads', { params }),
     approvePlatformAd: (id) => axiosInstance.patch(`/admin/professionals/platform-ads/${id}/approve`),
     rejectPlatformAd: (id, data) => axiosInstance.patch(`/admin/professionals/platform-ads/${id}/reject`, data),
 
+=======
+>>>>>>> 89a2401a6a1f7616e00c899c6f31c030381541b5
     // Sub-Admin Management
     getSubadmins: () => axiosInstance.get('/admin/subadmins'),
     createSubadmin: (data) => axiosInstance.post('/admin/subadmins', data),
