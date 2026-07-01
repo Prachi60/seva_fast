@@ -59,7 +59,7 @@ describe('POST /api/delivery/orders/:orderId/validate-otp', () => {
     
     req = {
       params: { orderId: 'ORD123456' },
-      body: { otp: '1234' },
+      body: { otp: '123456' },
       user: { id: 'delivery-user-id' }
     };
 
@@ -179,8 +179,8 @@ describe('POST /api/delivery/orders/:orderId/validate-otp', () => {
       );
     });
 
-    it('should return 400 when OTP format is invalid (not 4 digits)', async () => {
-      req.body = { otp: '123' };
+    it('should return 400 when OTP format is invalid (not 6 digits)', async () => {
+      req.body = { otp: '12345' };
 
       await validateDeliveryOtp(req, res);
 

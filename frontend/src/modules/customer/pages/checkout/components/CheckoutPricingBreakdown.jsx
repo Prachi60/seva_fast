@@ -28,6 +28,7 @@ const CheckoutPricingBreakdown = React.memo(function CheckoutPricingBreakdown({
   cartTotal,
   selectedCoupon,
   discountAmount,
+  isOnlinePayment = false,
 }) {
   const deliveryFee = pricingPreview?.deliveryFeeCharged || 0;
   const handlingFee = pricingPreview?.handlingFeeCharged || 0;
@@ -171,7 +172,11 @@ const CheckoutPricingBreakdown = React.memo(function CheckoutPricingBreakdown({
                   {finalAmountToPay === 0 ? "Fully Covered" : "Total Payable"}
                 </span>
                 <span className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em]">
-                  {finalAmountToPay === 0 ? "Paid via Wallet" : "Safe & Secure Payment"}
+                  {finalAmountToPay === 0
+                    ? "Paid via Wallet"
+                    : isOnlinePayment
+                      ? "Secured by Razorpay"
+                      : "Safe & Secure Payment"}
                 </span>
               </div>
               <span className="font-[1000] text-primary text-3xl tracking-tighter italic">

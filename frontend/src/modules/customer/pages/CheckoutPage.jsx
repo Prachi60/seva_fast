@@ -9,6 +9,11 @@ import { customerApi } from "../services/customerApi";
 import { useLocation as useAppLocation } from "../context/LocationContext";
 import { applyCloudinaryTransform } from "@/core/utils/imageUtils";
 import {
+  loadRazorpayScript,
+  launchOrderRazorpayPayment,
+  resolveRazorpayCheckoutPayload,
+} from "@shared/utils/razorpayCheckout";
+import {
   MapPin,
   Clock,
   CreditCard,
@@ -67,6 +72,23 @@ import CheckoutCouponSection from "./checkout/components/CheckoutCouponSection";
 import CheckoutRecommendedProducts from "./checkout/components/CheckoutRecommendedProducts";
 import CheckoutWishlistSection from "./checkout/components/CheckoutWishlistSection";
 import CheckoutOrderSuccess from "./checkout/components/CheckoutOrderSuccess";
+
+const createEmptyAddress = () => ({
+  type: "Home",
+  name: "",
+  address: "",
+  landmark: "",
+  city: "",
+  phone: "",
+});
+
+const normalizeRegisteredPhone = (phone) => {
+  const raw = String(phone || "").trim();
+  if (!raw) return "";
+  if (raw.startsWith("+91")) return raw.replace(/^\+91[\s-]*/, "");
+  if (raw.startsWith("91") && raw.length >= 12) return raw.replace(/^91[\s-]*/, "");
+  return raw;
+};
 
 const CheckoutPage = () => {
   const {
@@ -144,23 +166,9 @@ const CheckoutPage = () => {
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
   const postOrderNavigateRef = useRef(null);
   const previewDebounceRef = useRef(null);
-  const [currentAddress, setCurrentAddress] = useState({
-    type: "Home",
-    name: "Harshvardhan Panchal",
-    address: "81 Pipliyahana Road, Near 214",
-    landmark: "",
-    city: "Indore - 452018",
-    phone: "6268423925",
-  });
+  const [currentAddress, setCurrentAddress] = useState(createEmptyAddress);
   const [isEditAddressOpen, setIsEditAddressOpen] = useState(false);
-  const [editAddressForm, setEditAddressForm] = useState({
-    type: "Home",
-    name: "Harshvardhan Panchal",
-    address: "81 Pipliyahana Road, Near 214",
-    landmark: "",
-    city: "Indore - 452018",
-    phone: "6268423925",
-  });
+  const [editAddressForm, setEditAddressForm] = useState(createEmptyAddress);
   const [showRecipientForm, setShowRecipientForm] = useState(false);
   const [recipientData, setRecipientData] = useState({
     completeAddress: "",
@@ -192,7 +200,8 @@ const CheckoutPage = () => {
             id: "online",
             label: "Pay Online",
             icon: CreditCard,
-            sublabel: "UPI / Cards / NetBanking",
+            sublabel: "Razorpay • UPI / Cards / NetBanking",
+            badge: "Razorpay",
           },
         ]),
     ...(settings?.codEnabled === false
@@ -220,13 +229,75 @@ const CheckoutPage = () => {
 
   const RECIPIENT_STORAGE_KEY = "sevafast_checkout_recipient_v1";
 
+  const registeredName = user?.name || "";
+  const registeredPhone = normalizeRegisteredPhone(
+    user?.phone || user?.phoneNumber || "",
+  );
+
   // Derived display values for primary delivery card
-  const displayName = savedRecipient?.name || currentAddress.name;
+  const displayName = savedRecipient?.name || registeredName || currentAddress.name;
   const displayPhone =
-    savedRecipient?.phone || currentAddress.phone || "6268423925";
+    savedRecipient?.phone || registeredPhone || currentAddress.phone;
   const displayAddress = savedRecipient
     ? `${savedRecipient.completeAddress}${savedRecipient.landmark ? `, ${savedRecipient.landmark}` : ""}${savedRecipient.pincode ? ` - ${savedRecipient.pincode}` : ""}`
     : `${currentAddress.address}${currentAddress.landmark ? `, ${currentAddress.landmark}` : ""}, ${currentAddress.city}`;
+
+  useEffect(() => {
+    if (!user) return;
+
+    setCurrentAddress((prev) => ({
+      ...prev,
+      name: registeredName || prev.name,
+      phone: registeredPhone || prev.phone,
+    }));
+    setEditAddressForm((prev) => ({
+      ...prev,
+      name: registeredName || prev.name,
+      phone: registeredPhone || prev.phone,
+    }));
+  }, [registeredName, registeredPhone, user]);
+
+  useEffect(() => {
+    if (savedRecipient) return;
+
+    const primarySaved = locationSavedAddresses[0];
+    const addressText = primarySaved?.address || currentLocation?.name || "";
+    if (!addressText) return;
+
+    const cityText =
+      [currentLocation?.city, currentLocation?.state, currentLocation?.pincode]
+        .filter(Boolean)
+        .join(", ") || "";
+
+    setCurrentAddress((prev) => {
+      if (prev.address) return prev;
+
+      return {
+        ...prev,
+        name: registeredName || prev.name,
+        phone: registeredPhone || prev.phone,
+        address: addressText,
+        city: cityText || prev.city,
+        ...(primarySaved?.location
+          ? { location: primarySaved.location }
+          : typeof currentLocation?.latitude === "number" &&
+              typeof currentLocation?.longitude === "number"
+            ? {
+                location: {
+                  lat: currentLocation.latitude,
+                  lng: currentLocation.longitude,
+                },
+              }
+            : {}),
+      };
+    });
+  }, [
+    savedRecipient,
+    locationSavedAddresses,
+    currentLocation,
+    registeredName,
+    registeredPhone,
+  ]);
 
   useEffect(() => {
     if (!paymentMethods.length) return;
@@ -235,6 +306,11 @@ const CheckoutPage = () => {
       setSelectedPayment(paymentMethods[0].id);
     }
   }, [paymentMethods, selectedPayment]);
+
+  useEffect(() => {
+    if (settings?.onlineEnabled === false) return;
+    void loadRazorpayScript();
+  }, [settings?.onlineEnabled]);
 
   useEffect(() => {
     if (useWallet && user?.walletBalance && pricingPreview?.grandTotal) {
@@ -247,6 +323,12 @@ const CheckoutPage = () => {
   }, [useWallet, user?.walletBalance, pricingPreview?.grandTotal]);
 
   const finalAmountToPay = Math.max(0, (pricingPreview?.grandTotal ?? cartTotal) - walletAmountToUse);
+  const slideToPayText =
+    finalAmountToPay === 0
+      ? "Place Free Order"
+      : selectedPayment === "online"
+        ? "Slide to Pay"
+        : "Slide to Place Order";
 
   const buildAddressForOrder = () => {
     if (savedRecipient) {
@@ -274,6 +356,8 @@ const CheckoutPage = () => {
 
     return {
       ...currentAddress,
+      name: registeredName || currentAddress.name,
+      phone: registeredPhone || currentAddress.phone,
       location: hasAddrLoc ? { lat: addrLoc.lat, lng: addrLoc.lng } : undefined,
     };
   };
@@ -398,10 +482,10 @@ const CheckoutPage = () => {
 
       setCurrentAddress({
         type: addr.label,
-        name: user?.name || currentAddress.name,
+        name: registeredName || currentAddress.name,
         address: rawText,
         city: "",
-        phone: addr.phone || currentAddress.phone,
+        phone: registeredPhone || currentAddress.phone,
         landmark: "",
         ...(pid ? { placeId: pid } : {}),
         ...(resolvedLoc ? { location: resolvedLoc } : {}),
@@ -499,6 +583,8 @@ const CheckoutPage = () => {
       const liveLocation = result.location;
       setCurrentAddress((prev) => ({
         ...prev,
+        name: registeredName || prev.name,
+        phone: registeredPhone || prev.phone,
         address: liveLocation.name,
         landmark: "",
         city: [liveLocation.city, liveLocation.state, liveLocation.pincode]
@@ -516,6 +602,8 @@ const CheckoutPage = () => {
     if (currentLocation?.name) {
       setCurrentAddress((prev) => ({
         ...prev,
+        name: registeredName || prev.name,
+        phone: registeredPhone || prev.phone,
         address: currentLocation.name,
         landmark: "",
         city: [currentLocation.city, currentLocation.state, currentLocation.pincode]
@@ -737,6 +825,18 @@ const CheckoutPage = () => {
   const handlePlaceOrder = async () => {
     setIsPlacingOrder(true);
     try {
+      if (selectedPayment === "online") {
+        const scriptReady = await loadRazorpayScript();
+        if (!scriptReady) {
+          setIsPlacingOrder(false);
+          showToast(
+            "Razorpay could not be loaded. Check your internet connection and try again.",
+            "error",
+          );
+          return;
+        }
+      }
+
       const taxAmount = pricingPreview?.taxTotal || 0;
       const orderData = {
         address: buildAddressForOrder(),
@@ -783,23 +883,87 @@ const CheckoutPage = () => {
               orderRef: paymentRef,
               orderId: mainOrderId,
             });
-            if (paymentRes.data.success && paymentRes.data.result?.redirectUrl) {
-              clearCart();
-              window.location.href = paymentRes.data.result.redirectUrl;
-              return;
-            } else {
+
+            if (!paymentRes.data?.success) {
               throw new Error(
-                paymentRes.data.message || "Failed to initiate payment gateway"
+                paymentRes.data?.message || "Failed to initiate Razorpay payment",
               );
             }
+
+            let paymentResult = paymentRes.data.result || {};
+            let razorpayPayload = resolveRazorpayCheckoutPayload(paymentResult);
+
+            if (!razorpayPayload.razorpayKey) {
+              const configRes = await customerApi.getRazorpayConfig();
+              const config = configRes.data?.result || {};
+              paymentResult = {
+                ...paymentResult,
+                razorpayKey: config.razorpayKey || config.keyId,
+              };
+              razorpayPayload = resolveRazorpayCheckoutPayload(paymentResult);
+            }
+
+            if (!razorpayPayload.razorpayOrderId) {
+              throw new Error("Razorpay order id was not returned by the server.");
+            }
+
+            const checkoutResult = await launchOrderRazorpayPayment({
+              paymentResult,
+              description: `Order #${String(mainOrderId).slice(-8)}`,
+              prefill: {
+                name: user?.name || "Customer",
+                contact: user?.phone || "",
+              },
+              onVerified: async (response) => {
+                const verifyRes = await customerApi.verifyPaymentClient({
+                  merchantOrderId: response.razorpay_order_id,
+                  razorpay_order_id: response.razorpay_order_id,
+                  razorpay_payment_id: response.razorpay_payment_id,
+                  razorpay_signature: response.razorpay_signature,
+                  orderRef: paymentRef,
+                });
+
+                if (
+                  !verifyRes.data?.success ||
+                  verifyRes.data?.result?.status !== "CAPTURED"
+                ) {
+                  throw new Error(
+                    verifyRes.data?.message || "Payment verification failed",
+                  );
+                }
+
+                clearCart();
+                showToast("Payment successful — order confirmed.", "success");
+                setOrderId(mainOrderId);
+                setShowSuccess(true);
+
+                if (postOrderNavigateRef.current) {
+                  clearTimeout(postOrderNavigateRef.current);
+                }
+                postOrderNavigateRef.current = setTimeout(() => {
+                  postOrderNavigateRef.current = null;
+                  setIsPlacingOrder(false);
+                  navigate(`/orders/${mainOrderId}`);
+                }, 3000);
+              },
+            });
+
+            if (checkoutResult?.cancelled) {
+              setIsPlacingOrder(false);
+              showToast(
+                "Razorpay payment cancelled. You can complete payment from order details.",
+                "warning",
+              );
+            }
+            return;
           } catch (payError) {
             setIsPlacingOrder(false);
             showToast(
-              payError.message ||
-                "Order created but payment gateway failed. Please pay from order details.",
-              "error"
+              payError.response?.data?.message ||
+                payError.message ||
+                "Could not open Razorpay checkout. Please try again.",
+              "error",
             );
-            navigate(`/orders/${mainOrderId}`);
             return;
           }
         }
@@ -1053,6 +1217,7 @@ const CheckoutPage = () => {
               cartTotal={cartTotal}
               selectedCoupon={selectedCoupon}
               discountAmount={discountAmount}
+              isOnlinePayment={selectedPayment === "online"}
             />
 
             {/* Payment Selector */}
@@ -1072,10 +1237,12 @@ const CheckoutPage = () => {
                 amount={finalAmountToPay}
                 onSuccess={handlePlaceOrder}
                 isLoading={isPlacingOrder || isPreviewLoading || !pricingPreview}
-                text={finalAmountToPay === 0 ? "Place Free Order" : "Order Now"}
+                text={slideToPayText}
               />
               <p className="text-center text-[10px] text-slate-400 font-bold mt-4 uppercase tracking-[0.1em]">
-                🔒 SSL encrypted secure checkout
+                {selectedPayment === "online"
+                  ? "Secured by Razorpay"
+                  : "Secure checkout"}
               </p>
             </div>
           </div>
@@ -1089,7 +1256,7 @@ const CheckoutPage = () => {
             amount={finalAmountToPay}
             onSuccess={handlePlaceOrder}
             isLoading={isPlacingOrder || isPreviewLoading || !pricingPreview}
-            text={finalAmountToPay === 0 ? "Place Free Order" : "Slide to Pay"}
+            text={slideToPayText}
           />
         </div>
       </div>
@@ -1118,10 +1285,12 @@ const CheckoutPage = () => {
                   </div>
                   <span className="font-black text-slate-800 uppercase tracking-widest text-[10px]">{addr.label}</span>
                 </div>
-                <p className="text-sm font-bold text-slate-800">{user?.name || currentAddress.name}</p>
+                <p className="text-sm font-bold text-slate-800">{registeredName || currentAddress.name}</p>
                 <p className="text-xs text-slate-500 leading-relaxed mb-1">{addr.address}</p>
-                {addr.phone && (
-                  <p className="text-[11px] text-slate-400 font-medium">Phone: {addr.phone}</p>
+                {(registeredPhone || addr.phone) && (
+                  <p className="text-[11px] text-slate-400 font-medium">
+                    Phone: {registeredPhone || addr.phone}
+                  </p>
                 )}
               </button>
             ))}

@@ -173,8 +173,9 @@ export const verifyOnlineOrderPayment = async (req, res) => {
     const verification = await verifyClientPaymentCallback({
       orderRef: id,
       userId: req.user?.id,
-      gatewayOrderId: payload.merchantOrderId,
-      gatewayPaymentId: payload.transactionId || null,
+      gatewayOrderId: payload.merchantOrderId || payload.razorpay_order_id,
+      gatewayPaymentId: payload.transactionId || payload.razorpay_payment_id || null,
+      razorpaySignature: payload.razorpay_signature || null,
       correlationId: req.correlationId || null,
     });
 

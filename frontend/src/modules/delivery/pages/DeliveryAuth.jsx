@@ -32,6 +32,12 @@ const VEHICLE_TYPES = [
   { value: "cycle", label: "Cycle" },
 ];
 
+const DELIVERY_TEST_PHONES = new Set(["6268423925", "9111966732", "8888888888"]);
+const DELIVERY_TEST_OTP = "123456";
+
+const isDeliveryTestPhone = (phone) =>
+  DELIVERY_TEST_PHONES.has(String(phone || "").replace(/\D/g, "").slice(-10));
+
 const DeliveryAuth = () => {
   const navigate = useNavigate();
   const { settings } = useSettings();
@@ -136,7 +142,8 @@ const DeliveryAuth = () => {
         const res = await deliveryApi.sendSignupOtp(formData);
         toast.success(res.data?.message || "OTP sent!");
       }
-      setOtp(["", "", "", "", "", ""]);
+      const activePhone = mode === "login" ? loginPhone : signupPhone;
+      setOtp(isDeliveryTestPhone(activePhone) ? DELIVERY_TEST_OTP.split("") : ["", "", "", "", "", ""]);
       setTimer(30);
       setStep("otp");
     } catch (error) {
@@ -169,13 +176,27 @@ const DeliveryAuth = () => {
   };
 
   const handleOtpChange = (index, value) => {
-    if (isNaN(value)) return;
+    const digit = value.replace(/\D/g, "").slice(-1);
+    if (value && !digit) return;
     const newOtp = [...otp];
-    newOtp[index] = value;
+    newOtp[index] = digit;
     setOtp(newOtp);
-    if (value && index < 5) {
+    if (digit && index < 5) {
       document.getElementById(`otp-${index + 1}`)?.focus();
     }
+  };
+
+  const handleOtpPaste = (e) => {
+    e.preventDefault();
+    const pasted = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, 6);
+    if (!pasted) return;
+    const newOtp = ["", "", "", "", "", ""];
+    pasted.split("").forEach((char, i) => {
+      newOtp[i] = char;
+    });
+    setOtp(newOtp);
+    const focusIndex = Math.min(pasted.length, 5);
+    document.getElementById(`otp-${focusIndex}`)?.focus();
   };
 
   const handleKeyDown = (index, e) => {
@@ -265,9 +286,9 @@ const DeliveryAuth = () => {
                       ? "Partner Login"
                       : "Partner Registration"}
                 </h1>
-                <p className="text-gray-500 text-sm mt-1 max-w-[240px] mx-auto">
+                <p className="text-gray-500 text-sm mt-1 max-w-[280px] mx-auto leading-relaxed">
                   {step === "otp"
-                    ? `Enter the 4-digit code sent to +91 ${mode === "login" ? loginPhone : signupPhone}`
+                    ? `Enter the 6-digit code sent to +91 ${mode === "login" ? loginPhone : signupPhone}`
                     : mode === "login"
                       ? "Login with your registered phone number"
                       : `Step ${signupStep} of 4: ${signupStep === 1 ? "Personal Info" : signupStep === 2 ? "Vehicle Info" : signupStep === 3 ? "Bank Info" : "Documents"}`}
@@ -784,21 +805,25 @@ const DeliveryAuth = () => {
                   className="space-y-5"
                 >
                   {/* OTP Boxes */}
-                  <div className="space-y-2 text-center">
+                  <div className="space-y-3 text-center">
                     <label className="text-xs font-black text-gray-400 uppercase tracking-widest">
                       Enter Security Code
                     </label>
-                    <div className="flex justify-center gap-3 pt-1">
+                    <div className="grid grid-cols-6 gap-2 w-full max-w-[300px] mx-auto pt-1">
                       {otp.map((digit, index) => (
                         <input
                           key={index}
                           id={`otp-${index}`}
                           type="tel"
+                          inputMode="numeric"
+                          autoComplete={index === 0 ? "one-time-code" : "off"}
                           maxLength={1}
                           value={digit}
                           onChange={(e) => handleOtpChange(index, e.target.value)}
                           onKeyDown={(e) => handleKeyDown(index, e)}
-                          className="w-14 h-14 text-center text-2xl font-black border-2 border-gray-100 rounded-2xl focus:border-brand-500 focus:ring-4 focus:ring-brand-100 outline-none transition-all bg-gray-50 text-gray-900"
+                          onPaste={index === 0 ? handleOtpPaste : undefined}
+                          aria-label={`OTP digit ${index + 1}`}
+                          className="w-full h-12 text-center text-xl font-black border-2 border-gray-100 rounded-xl focus:border-brand-500 focus:ring-2 focus:ring-brand-100 outline-none transition-all bg-gray-50 text-gray-900"
                         />
                       ))}
                     </div>

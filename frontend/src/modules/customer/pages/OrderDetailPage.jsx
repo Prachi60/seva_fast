@@ -8,6 +8,7 @@ import DeliveryOtpDisplay from "../components/DeliveryOtpDisplay";
 import OrderProgressTracker from "../components/order/OrderProgressTracker";
 import ReturnProgressTracker from "../components/order/ReturnProgressTracker";
 import { applyCloudinaryTransform } from "@/core/utils/imageUtils";
+import { launchOrderRazorpayPayment, loadRazorpayScript, resolveRazorpayCheckoutPayload } from "@shared/utils/razorpayCheckout";
 import {
   ChevronLeft,
   Package,
@@ -29,6 +30,7 @@ import {
   X,
 } from "lucide-react";
 import { customerApi } from "../services/customerApi";
+import { useAuth } from "@/core/context/AuthContext";
 import { toast } from "sonner";
 import { subscribeToOrderLocation, subscribeToOrderTrail, subscribeToOrderRoute } from "@/core/services/trackingClient";
 import {
@@ -131,6 +133,7 @@ const matchesOrderIdentifier = (payloadOrderId, identifiers = []) => {
 
 const OrderDetailPage = () => {
   const { orderId } = useParams();
+  const { user } = useAuth();
   const [showInvoice, setShowInvoice] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [order, setOrder] = useState(null);
@@ -740,6 +743,12 @@ const OrderDetailPage = () => {
   const handleRetryPayment = async () => {
     try {
       if (!order) return;
+      const scriptReady = await loadRazorpayScript();
+      if (!scriptReady) {
+        toast.error("Razorpay could not be loaded. Check your internet connection.");
+        return;
+      }
+
       const paymentRef =
         Number(order.checkoutGroupSize || 1) > 1
           ? (order.checkoutGroupId || order.orderId)
@@ -747,17 +756,70 @@ const OrderDetailPage = () => {
       const response = await customerApi.createPaymentOrder({
         orderRef: paymentRef,
       });
-      if (response.data.success && response.data.result?.redirectUrl) {
-        window.location.href = response.data.result.redirectUrl;
-      } else {
-        toast.error(response.data.message || "Failed to initiate payment");
+
+      if (!response.data?.success) {
+        toast.error(response.data?.message || "Failed to initiate Razorpay payment");
+        return;
+      }
+
+      let paymentResult = response.data.result || {};
+      let razorpayPayload = resolveRazorpayCheckoutPayload(paymentResult);
+
+      if (!razorpayPayload.razorpayKey) {
+        const configRes = await customerApi.getRazorpayConfig();
+        const config = configRes.data?.result || {};
+        paymentResult = {
+          ...paymentResult,
+          razorpayKey: config.razorpayKey || config.keyId,
+        };
+        razorpayPayload = resolveRazorpayCheckoutPayload(paymentResult);
+      }
+
+      if (!razorpayPayload.razorpayOrderId) {
+        toast.error("Razorpay order details were not returned by the server.");
+        return;
+      }
+
+      const checkoutResult = await launchOrderRazorpayPayment({
+        paymentResult,
+        description: `Order #${String(order.orderId).slice(-8)}`,
+        prefill: {
+          name: user?.name || "Customer",
+          contact: user?.phone || "",
+        },
+        onVerified: async (razorpayResponse) => {
+          const verifyRes = await customerApi.verifyPaymentClient({
+            merchantOrderId: razorpayResponse.razorpay_order_id,
+            razorpay_order_id: razorpayResponse.razorpay_order_id,
+            razorpay_payment_id: razorpayResponse.razorpay_payment_id,
+            razorpay_signature: razorpayResponse.razorpay_signature,
+            orderRef: paymentRef,
+          });
+
+          if (
+            !verifyRes.data?.success ||
+            verifyRes.data?.result?.status !== "CAPTURED"
+          ) {
+            throw new Error(
+              verifyRes.data?.message || "Payment verification failed",
+            );
+          }
+
+          toast.success("Payment successful — order confirmed.");
+          const refreshed = await customerApi.getOrderDetails(orderId);
+          setOrder(refreshed.data.result);
+        },
+      });
+
+      if (checkoutResult?.cancelled) {
+        toast.error("Razorpay payment cancelled. Please try again when ready.");
       }
     } catch (err) {
       console.error("[OrderDetailPage] Retry payment error:", err);
       toast.error(
         err?.response?.data?.message ||
         err?.message ||
-        "Unable to start payment. Please try again later.",
+        "Unable to start Razorpay payment. Please try again later.",
       );
     }
   };
@@ -932,6 +994,8 @@ const OrderDetailPage = () => {
         <DeliveryOtpDisplay
           orderId={order?.orderId || orderId}
           checkoutGroupId={order?.checkoutGroupId || orderId}
+          initialOtp={order?.deliveryOtp}
+          initialExpiresAt={order?.deliveryOtpExpiresAt}
         />
 
         {/* Delivery Partner Card - Redesigned */}

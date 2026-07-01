@@ -5,8 +5,8 @@ import { deliveryApi } from "../services/deliveryApi";
 
 /**
  * OtpInput Component
- * 
- * A 4-digit OTP input component for delivery personnel to validate delivery completion.
+ *
+ * A 6-digit OTP input for delivery personnel to validate delivery completion.
  * Features auto-focus, numeric keyboard on mobile, validation error handling, and
  * attempts remaining counter.
  * 
@@ -50,21 +50,18 @@ const OtpInput = ({ orderId, isReturn = false, isReturnDrop = false, onSuccess, 
   /**
    * Handle input change for a specific digit
    * Implements auto-focus to next field on digit entry
-   * Requirement 5.2: Accept exactly 4 numeric digits
+   * Requirement 5.2: Accept exactly 6 numeric digits
    */
   const handleChange = (index, value) => {
-    // Only allow numeric input
-    if (value && !/^\d$/.test(value)) {
-      return;
-    }
+    const digit = value.replace(/\D/g, "").slice(-1);
+    if (value && !digit) return;
 
     const newOtp = [...otp];
-    newOtp[index] = value;
+    newOtp[index] = digit;
     setOtp(newOtp);
     setError(null);
 
-    // Auto-focus next field if digit entered
-    if (value && index < 5) {
+    if (digit && index < 5) {
       inputRefs[index + 1].current?.focus();
     }
   };
@@ -219,11 +216,20 @@ const OtpInput = ({ orderId, isReturn = false, isReturnDrop = false, onSuccess, 
     }
   };
 
-  // Check if all 4 digits are entered
+  // Check if all 6 digits are entered
   const isComplete = otp.every((digit) => digit !== "");
 
+  const otpBoxClass = (digit) =>
+    `w-full h-12 text-center text-xl font-bold font-mono border-2 rounded-xl transition-all duration-200 outline-none focus:outline-none focus:ring-2 focus:ring-offset-0 ${
+      error
+        ? "border-red-300 bg-red-50 text-red-900 focus:border-red-500 focus:ring-red-500"
+        : digit
+          ? "border-primary bg-primary/10 text-slate-900 focus:border-primary focus:ring-primary"
+          : "border-gray-300 bg-white text-gray-900 focus:border-brand-500 focus:ring-brand-500"
+    } ${isLoading ? "opacity-50 cursor-not-allowed" : ""}`;
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-5 w-full min-w-0">
       {/* Header */}
       <div className="text-center">
         <h3 className="text-lg font-bold text-gray-900 mb-1">
@@ -237,13 +243,14 @@ const OtpInput = ({ orderId, isReturn = false, isReturnDrop = false, onSuccess, 
       </div>
 
       {/* OTP Input Fields */}
-      <div className="flex justify-center gap-3">
+      <div className="grid grid-cols-6 gap-2 w-full max-w-[300px] mx-auto px-0.5">
         {otp.map((digit, index) => (
           <input
             key={index}
             ref={inputRefs[index]}
-            type="text"
+            type="tel"
             inputMode="numeric"
+            autoComplete={index === 0 ? "one-time-code" : "off"}
             pattern="[0-9]*"
             maxLength={1}
             value={digit}
@@ -251,12 +258,7 @@ const OtpInput = ({ orderId, isReturn = false, isReturnDrop = false, onSuccess, 
             onKeyDown={(e) => handleKeyDown(index, e)}
             onPaste={index === 0 ? handlePaste : undefined}
             disabled={isLoading}
-            className={`w-14 h-16 text-center text-2xl font-bold font-mono border-2 rounded-xl transition-all duration-200 outline-none focus:outline-none focus:ring-2 focus:ring-offset-0 ${error
-                ? "border-red-300 bg-red-50 text-red-900 focus:border-red-500 focus:ring-red-500"
-                : digit
-                  ? "border-primary bg-primary/10 text-slate-900 focus:border-primary focus:ring-primary"
-                  : "border-gray-300 bg-white text-gray-900 focus:border-brand-500 focus:ring-brand-500"
-              } ${isLoading ? "opacity-50 cursor-not-allowed" : ""}`}
+            className={otpBoxClass(digit)}
             aria-label={`Digit ${index + 1}`}
           />
         ))}
@@ -297,8 +299,7 @@ const OtpInput = ({ orderId, isReturn = false, isReturnDrop = false, onSuccess, 
         </button>
       )}
 
-      {/* Submit Button */}
-      {/* Enable submit button only when 4 digits entered */}
+      {/* Submit Button — enabled when all 6 digits are entered */}
       <button
         onClick={handleSubmit}
         disabled={!isComplete || isLoading || isGenerating}

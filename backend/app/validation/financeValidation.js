@@ -46,10 +46,13 @@ export const createFinanceOrderSchema = checkoutPreviewSchema.keys({
 });
 
 export const verifyOnlinePaymentSchema = Joi.object({
-  merchantOrderId: Joi.string().trim().required(),
+  merchantOrderId: Joi.string().trim().optional(),
   transactionId: Joi.string().trim().optional(),
+  razorpay_order_id: Joi.string().trim().optional(),
+  razorpay_payment_id: Joi.string().trim().optional(),
+  razorpay_signature: Joi.string().trim().optional(),
   paymentMeta: Joi.object().unknown(true).optional(),
-});
+}).or("merchantOrderId", "razorpay_order_id");
 
 export const codMarkCollectedSchema = Joi.object({
   amount: Joi.number().min(0.01).optional(),

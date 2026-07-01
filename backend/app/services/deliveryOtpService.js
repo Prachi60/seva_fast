@@ -197,7 +197,7 @@ export function isOtpExpired(expiresAt) {
 /**
  * Validate OTP entered by delivery person
  * @param {string} orderId - Order identifier
- * @param {string} enteredOtp - 4-digit OTP entered by delivery person
+ * @param {string} enteredOtp - 6-digit OTP entered by delivery person
  * @returns {Promise<Object>} { valid: boolean, error?: string, attemptsRemaining?: number }
  */
 export async function validateDeliveryOtp(orderId, enteredOtp) {

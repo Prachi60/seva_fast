@@ -31,7 +31,7 @@ const matchesOrderIdentifier = (payloadOrderId, identifiers = []) => {
     .includes(normalizedPayloadId);
 };
 
-const DeliveryOtpDisplay = ({ orderId, checkoutGroupId = null }) => {
+const DeliveryOtpDisplay = ({ orderId, checkoutGroupId = null, initialOtp = null, initialExpiresAt = null }) => {
   const [otpData, setOtpData] = useState(null);
   const [isDelivered, setIsDelivered] = useState(false);
   const [remainingSeconds, setRemainingSeconds] = useState(0);
@@ -65,6 +65,27 @@ const DeliveryOtpDisplay = ({ orderId, checkoutGroupId = null }) => {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, []);
+
+  // Hydrate OTP from order details API (page refresh / late visit / missed socket event)
+  useEffect(() => {
+    if (!initialOtp) return;
+
+    const expiresAt =
+      initialExpiresAt || new Date(Date.now() + 10 * 60 * 1000).toISOString();
+    const remaining = calculateRemainingTime(expiresAt);
+    if (remaining <= 0) return;
+
+    setOtpData((prev) => {
+      if (prev?.otp === initialOtp) return prev;
+      return {
+        otp: initialOtp,
+        expiresAt,
+        deliveryPersonNearby: true,
+      };
+    });
+    setIsDelivered(false);
+    setRemainingSeconds(remaining);
+  }, [initialOtp, initialExpiresAt, orderId]);
 
   // Set up Socket.IO listeners for OTP events
   useEffect(() => {

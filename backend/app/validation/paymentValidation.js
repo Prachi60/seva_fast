@@ -12,6 +12,9 @@ export const verifyPaymentClientSchema = Joi.object({
   orderId: objectIdOrPublicOrderSchema.optional(),
   merchantOrderId: Joi.string().trim().required(),
   transactionId: Joi.string().trim().optional(),
+  razorpay_order_id: Joi.string().trim().optional(),
+  razorpay_payment_id: Joi.string().trim().optional(),
+  razorpay_signature: Joi.string().trim().optional(),
 }).or("orderRef", "orderId");
 
 export const refundSchema = Joi.object({

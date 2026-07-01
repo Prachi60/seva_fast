@@ -864,18 +864,18 @@ export const validateDeliveryOtp = async (req, res) => {
             return handleResponse(res, 400, "OTP is required", {
                 error: {
                     code: "OTP_INVALID_FORMAT",
-                    message: "OTP must be a 4-digit string"
+                    message: "OTP must be a 6-digit string"
                 }
             });
         }
 
-        // Validate OTP format: exactly 4 digits
-        const otpPattern = /^\d{4}$/;
+        // Validate OTP format: exactly 6 digits
+        const otpPattern = /^\d{6}$/;
         if (!otpPattern.test(otp)) {
             return handleResponse(res, 400, "Invalid OTP format", {
                 error: {
                     code: "OTP_INVALID_FORMAT",
-                    message: "OTP must be exactly 4 digits"
+                    message: "OTP must be exactly 6 digits"
                 }
             });
         }

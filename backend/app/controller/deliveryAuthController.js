@@ -3,8 +3,47 @@ import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
 import handleResponse from "../utils/helper.js";
 import { sendSmsIndiaHubOtp } from "../services/smsIndiaHubService.js";
-import { generateOTP, useRealSMS } from "../utils/otp.js";
+import { generateOTP } from "../utils/otp.js";
 import { uploadToCloudinary } from "../services/mediaService.js";
+import { __testables as otpTestables } from "../modules/otp/otp.service.js";
+
+const DELIVERY_TEST_NUMBERS = new Set(["6268423925", "9111966732", "8888888888"]);
+const DELIVERY_TEST_OTP = "123456";
+
+function isDeliveryTestPhone(rawPhone) {
+    try {
+        const normalized = otpTestables.assertValidMobile(rawPhone);
+        return DELIVERY_TEST_NUMBERS.has(normalized);
+    } catch {
+        return false;
+    }
+}
+
+async function findDeliveryByPhone(rawPhone) {
+    const candidates = otpTestables.getPhoneCandidates(rawPhone);
+    return Delivery.findOne({ phone: { $in: candidates } }).select("+otp +otpExpiry");
+}
+
+async function dispatchDeliveryOtpSms({ phone, otp, context }) {
+    if (otpTestables.isMockOtpEnabled() || isDeliveryTestPhone(phone)) {
+        return { skipped: true };
+    }
+
+    const normalized = otpTestables.assertValidMobile(phone);
+    try {
+        await sendSmsIndiaHubOtp({ phone: normalized, otp });
+        return { sent: true };
+    } catch (smsError) {
+        if (process.env.NODE_ENV === "production") {
+            throw smsError;
+        }
+        console.warn(
+            `[${context}] SMS dispatch failed in non-production; OTP saved for testing.`,
+            smsError.message,
+        );
+        return { sent: false, devOtp: otp };
+    }
+}
 
 const generateToken = (delivery) =>
     jwt.sign(
@@ -41,15 +80,15 @@ export const signupDelivery = async (req, res) => {
             sellerId = seller._id;
         }
 
-        let delivery = await Delivery.findOne({ phone });
+        let delivery = await findDeliveryByPhone(phone);
 
         if (delivery && delivery.isVerified) {
             return handleResponse(res, 400, "Delivery partner already exists");
         }
 
         let otp = generateOTP();
-        if (phone === "6268423925" || phone === "+916268423925" || phone === "9111966732" || phone === "+919111966732") {
-            otp = "123456";
+        if (isDeliveryTestPhone(phone)) {
+            otp = DELIVERY_TEST_OTP;
         }
 
         let aadharUrl = delivery?.documents?.aadhar || "";
@@ -113,13 +152,20 @@ export const signupDelivery = async (req, res) => {
             await delivery.save();
         }
 
-        if (useRealSMS()) {
-            await sendSmsIndiaHubOtp({ phone, otp });
+        const smsResult = await dispatchDeliveryOtpSms({
+            phone,
+            otp,
+            context: "signupDelivery",
+        });
+
+        const payload = {};
+        if (smsResult.devOtp) {
+            payload.devOtp = smsResult.devOtp;
         }
 
-        return handleResponse(res, 200, "OTP sent successfully");
+        return handleResponse(res, 200, "OTP sent successfully", payload);
     } catch (error) {
-        return handleResponse(res, 500, error.message);
+        return handleResponse(res, error.statusCode || 500, error.message);
     }
 };
 
@@ -134,28 +180,35 @@ export const loginDelivery = async (req, res) => {
             return handleResponse(res, 400, "Phone number is required");
         }
 
-        const delivery = await Delivery.findOne({ phone });
+        const delivery = await findDeliveryByPhone(phone);
 
         if (!delivery || !delivery.isVerified) {
             return handleResponse(res, 404, "Delivery partner not found");
         }
 
         let otp = generateOTP();
-        if (phone === "6268423925" || phone === "+916268423925" || phone === "9111966732" || phone === "+919111966732") {
-            otp = "123456";
+        if (isDeliveryTestPhone(phone)) {
+            otp = DELIVERY_TEST_OTP;
         }
 
         delivery.otp = otp;
         delivery.otpExpiry = Date.now() + 5 * 60 * 1000;
         await delivery.save();
 
-        if (useRealSMS()) {
-            await sendSmsIndiaHubOtp({ phone, otp });
+        const smsResult = await dispatchDeliveryOtpSms({
+            phone,
+            otp,
+            context: "loginDelivery",
+        });
+
+        const payload = {};
+        if (smsResult.devOtp) {
+            payload.devOtp = smsResult.devOtp;
         }
 
-        return handleResponse(res, 200, "OTP sent successfully");
+        return handleResponse(res, 200, "OTP sent successfully", payload);
     } catch (error) {
-        return handleResponse(res, 500, error.message);
+        return handleResponse(res, error.statusCode || 500, error.message);
     }
 };
 
@@ -170,11 +223,12 @@ export const verifyDeliveryOTP = async (req, res) => {
             return handleResponse(res, 400, "Phone and OTP are required");
         }
 
+        const candidates = otpTestables.getPhoneCandidates(phone);
         const delivery = await Delivery.findOne({
-            phone,
+            phone: { $in: candidates },
             otp,
             otpExpiry: { $gt: Date.now() },
-        });
+        }).select("+otp +otpExpiry");
 
         if (!delivery) {
             return handleResponse(res, 400, "Invalid or expired OTP");
@@ -200,7 +254,7 @@ export const verifyDeliveryOTP = async (req, res) => {
             delivery,
         });
     } catch (error) {
-        return handleResponse(res, 500, error.message);
+        return handleResponse(res, error.statusCode || 500, error.message);
     }
 };
 

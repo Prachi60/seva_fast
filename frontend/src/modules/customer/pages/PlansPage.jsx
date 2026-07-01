@@ -8,7 +8,7 @@ import axiosInstance from '@/core/api/axios';
 import { useAuth } from '@/core/context/AuthContext';
 import PlanCard from '@/shared/components/ui/PlanCard';
 
-// Razorpay removed in favor of PhonePe
+// Plan subscriptions use Razorpay checkout
 const PlansPage = () => {
     const [plans, setPlans] = useState([]);
     const [loading, setLoading] = useState(true);

@@ -1,8 +1,8 @@
 import handleResponse from "../utils/helper.js";
 import {
   createPaymentOrderForOrderRef,
-  verifyPhonePePaymentStatus,
-  processPhonePeWebhook,
+  verifyRazorpayPaymentStatus,
+  processRazorpayWebhook,
 } from "../services/paymentService.js";
 import {
   createPaymentOrderSchema,
@@ -15,12 +15,12 @@ function resolvePaymentErrorMessage(error) {
   if (directMessage) return directMessage;
 
   const responseStatusText = String(error?.response?.statusText || "").trim();
-  if (responseStatusText) return `PhonePe gateway error: ${responseStatusText}`;
+  if (responseStatusText) return `Razorpay gateway error: ${responseStatusText}`;
 
   const causeCode = String(error?.cause?.code || error?.code || "").trim();
-  if (causeCode) return `PhonePe gateway request failed (${causeCode})`;
+  if (causeCode) return `Razorpay gateway request failed (${causeCode})`;
 
-  return "Unable to initiate payment with PhonePe right now";
+  return "Unable to initiate payment with Razorpay right now";
 }
 
 export const createPaymentOrder = async (req, res) => {
@@ -39,8 +39,12 @@ export const createPaymentOrder = async (req, res) => {
       result.duplicate ? "Re-using existing payment" : "Payment initiated",
       {
         payment: result.payment,
-        redirectUrl: result.redirectUrl,
-        merchantOrderId: result.payment.gatewayOrderId,
+        razorpayOrderId: result.razorpayOrderId,
+        amount: result.amount,
+        currency: result.currency,
+        razorpayKey: result.razorpayKey,
+        keyId: result.razorpayKey,
+        merchantOrderId: result.merchantOrderId,
       },
     );
   } catch (error) {
@@ -66,12 +70,12 @@ export const verifyPaymentStatus = async (req, res) => {
   try {
     const { id } = req.params;
     const merchantOrderId = id || req.query.merchantOrderId;
-    
+
     if (!merchantOrderId) {
-        return handleResponse(res, 400, "merchantOrderId is required");
+      return handleResponse(res, 400, "merchantOrderId is required");
     }
 
-    const verification = await verifyPhonePePaymentStatus({
+    const verification = await verifyRazorpayPaymentStatus({
       merchantOrderId,
       userId: req.user?.id,
       correlationId: req.correlationId || null,
@@ -86,51 +90,88 @@ export const verifyPaymentStatus = async (req, res) => {
   }
 };
 
-export const handlePhonePeWebhook = async (req, res) => {
+export const verifyPaymentClient = async (req, res) => {
   try {
-    const authorization = req.headers["x-verify"] || req.headers["authorization"];
+    const payload = validateSchema(verifyPaymentClientSchema, req.body || {});
+    const verification = await verifyRazorpayPaymentStatus({
+      merchantOrderId: payload.merchantOrderId,
+      userId: req.user?.id,
+      razorpayPaymentId: payload.razorpay_payment_id || payload.transactionId || null,
+      razorpaySignature: payload.razorpay_signature || null,
+      correlationId: req.correlationId || null,
+    });
+
+    return handleResponse(res, 200, "Payment verified", {
+      status: verification.status,
+      payment: verification.payment,
+    });
+  } catch (error) {
+    return handleResponse(res, error.statusCode || 500, error.message);
+  }
+};
+
+export const handleRazorpayWebhook = async (req, res) => {
+  try {
+    const signature = req.headers["x-razorpay-signature"];
     const rawBody = req.body;
 
-    if (!authorization) {
-        console.warn("[PhonePeWebhook] Missing verification header");
-        return res.status(401).send("Unauthorized");
+    if (!signature) {
+      console.warn("[RazorpayWebhook] Missing x-razorpay-signature header");
+      return res.status(401).send("Unauthorized");
     }
 
-    const result = await processPhonePeWebhook({
+    const result = await processRazorpayWebhook({
       rawBody,
-      authorization,
+      signature,
       correlationId: req.correlationId || null,
     });
 
     if (result.accepted) {
       return res.status(200).send("OK");
     }
-    
+
     return res.status(400).send("Bad Request");
   } catch (error) {
-    console.error("[PhonePeWebhook] Error processing webhook:", error.message);
-    return res.status(500).send("Internal Server Error");
+    console.error("[RazorpayWebhook] Error processing webhook:", error.message);
+    return res.status(error.statusCode === 401 ? 401 : 500).send(error.message);
+  }
+};
+
+export const getRazorpayConfig = async (req, res) => {
+  try {
+    const keyId = String(process.env.RAZORPAY_KEY_ID || "").trim();
+    if (!keyId) {
+      return handleResponse(res, 500, "Razorpay is not configured");
+    }
+
+    return handleResponse(res, 200, "Razorpay config loaded", {
+      keyId,
+      razorpayKey: keyId,
+      gateway: "RAZORPAY",
+    });
+  } catch (error) {
+    return handleResponse(res, 500, error.message);
   }
 };
 
 export const getPaymentStatus = async (req, res) => {
-    try {
-        const { id } = req.params;
-        const merchantOrderId = id;
-    
-        const verification = await verifyPhonePePaymentStatus({
-          merchantOrderId,
-          userId: req.user?.id,
-          correlationId: req.correlationId || null,
-        });
-    
-        return handleResponse(res, 200, "Payment status retrieved", {
-          status: verification.status,
-          merchantOrderId: verification.payment.gatewayOrderId,
-          amount: verification.payment.amount,
-          currency: verification.payment.currency,
-        });
-      } catch (error) {
-        return handleResponse(res, error.statusCode || 500, error.message);
-      }
+  try {
+    const { id } = req.params;
+    const merchantOrderId = id;
+
+    const verification = await verifyRazorpayPaymentStatus({
+      merchantOrderId,
+      userId: req.user?.id,
+      correlationId: req.correlationId || null,
+    });
+
+    return handleResponse(res, 200, "Payment status retrieved", {
+      status: verification.status,
+      merchantOrderId: verification.payment.gatewayOrderId,
+      amount: verification.payment.amount,
+      currency: verification.payment.currency,
+    });
+  } catch (error) {
+    return handleResponse(res, error.statusCode || 500, error.message);
+  }
 };

@@ -100,6 +100,9 @@ export const customerApi = {
   // Payments
   createPaymentOrder: (data) =>
     axiosInstance.post("/payments/create-order", data),
+  getRazorpayConfig: () => axiosInstance.get("/payments/razorpay-config"),
+  verifyPaymentClient: (data) =>
+    axiosInstance.post("/payments/verify", data),
   verifyPaymentStatus: (id) => axiosInstance.get(`/payments/status/${id}`),
 
   // Support & Reviews

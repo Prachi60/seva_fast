@@ -76,6 +76,11 @@ const CheckoutPaymentSelector = React.memo(function CheckoutPaymentSelector({
         <h3 className="font-black text-slate-800 mb-4 uppercase text-sm tracking-widest">
           Payment Method
         </h3>
+        {paymentMethods.some((method) => method.id === "online") ? (
+          <p className="mb-3 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+            Online payments are processed securely via Razorpay
+          </p>
+        ) : null}
         <div className="space-y-2">
           {paymentMethods.map((method) => {
             const Icon = method.icon;
@@ -100,12 +105,19 @@ const CheckoutPaymentSelector = React.memo(function CheckoutPaymentSelector({
                   />
                 </div>
                 <div className="flex-1 text-left">
-                  <p
-                    className={`font-bold text-sm ${
-                      selectedPayment === method.id ? "text-primary" : "text-slate-800"
-                    }`}>
-                    {method.label}
-                  </p>
+                  <div className="flex items-center gap-2">
+                    <p
+                      className={`font-bold text-sm ${
+                        selectedPayment === method.id ? "text-primary" : "text-slate-800"
+                      }`}>
+                      {method.label}
+                    </p>
+                    {method.badge ? (
+                      <span className="px-2 py-0.5 rounded-full bg-[#072654] text-[9px] font-black uppercase tracking-wider text-white">
+                        {method.badge}
+                      </span>
+                    ) : null}
+                  </div>
                   <p className="text-xs text-slate-500">{method.sublabel}</p>
                 </div>
                 <div

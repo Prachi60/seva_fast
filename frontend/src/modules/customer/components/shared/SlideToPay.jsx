@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, useAnimation, useMotionValue, useTransform } from 'framer-motion';
-import { ChevronRight, Check, ChevronsRight } from 'lucide-react';
+import { ChevronRight, Check } from 'lucide-react';
 
 const SlideToPay = ({
     onSuccess,
@@ -87,16 +87,15 @@ const SlideToPay = ({
 
             {/* Text Label */}
             <motion.div
-                className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none"
+                className="absolute inset-0 z-10 flex items-center pointer-events-none pl-16 pr-10"
                 style={{ opacity: textOpacity }}
             >
-                <span className="text-white font-black text-sm md:text-[13px] tracking-[0.25em] uppercase flex items-center gap-2">
-                    {text} <span className="text-white/40">|</span> <span className="text-brand-50 font-extrabold">₹{amount}</span>
+                <span className="min-w-0 flex-1 truncate text-white font-black text-[11px] sm:text-sm uppercase tracking-wide">
+                    {text}
                 </span>
-
-                <div className="absolute right-4 animate-pulse text-white/70">
-                    <ChevronsRight size={20} />
-                </div>
+                <span className="shrink-0 pl-2 text-sm font-extrabold text-brand-50 sm:text-base">
+                    ₹{amount}
+                </span>
             </motion.div>
 
             {/* Success State Text */}

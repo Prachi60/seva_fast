@@ -511,6 +511,32 @@ export const getOrderDetails = async (req, res) => {
     }
     // -----------------------------
 
+    const workflowStatus = String(order.workflowStatus || "").toUpperCase();
+    const legacyStatus = String(order.status || "").toLowerCase();
+    const isOutForDelivery =
+      workflowStatus === WORKFLOW_STATUS.OUT_FOR_DELIVERY ||
+      legacyStatus === "out_for_delivery";
+    const isDelivered =
+      workflowStatus === WORKFLOW_STATUS.DELIVERED ||
+      legacyStatus === "delivered";
+
+    if (isOwnerCustomer && isOutForDelivery && !isDelivered) {
+      const otpDoc = await OrderOtp.findOne({
+        orderId: order.orderId,
+        type: "delivery",
+        consumedAt: null,
+        expiresAt: { $gt: new Date() },
+      })
+        .sort({ createdAt: -1 })
+        .select("code expiresAt")
+        .lean();
+
+      if (otpDoc?.code) {
+        order.deliveryOtp = otpDoc.code;
+        order.deliveryOtpExpiresAt = otpDoc.expiresAt;
+      }
+    }
+
     return handleResponse(res, 200, "Order details fetched", order);
   } catch (error) {
     console.error(`[ORDER_ERROR] Error fetching order details:`, error);
