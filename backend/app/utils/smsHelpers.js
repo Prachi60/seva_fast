@@ -23,17 +23,28 @@ export function generateOTP(length = getOtpLength()) {
   return crypto.randomInt(min, max).toString();
 }
 
-export function buildMessage(otp) {
-  const minutes = parseInt(process.env.OTP_EXPIRY_MINUTES || "5", 10);
-  const template = String(
-    process.env.SMS_INDIA_HUB_TEMPLATE_TEXT ||
-      "Your OTP is {{OTP}}. Valid for {{MINUTES}} minutes.",
-  );
-  const appName = String(process.env.APP_NAME || "Noyo").trim();
-  const otpStr = String(otp);
-  const minutesStr = String(minutes);
+export function getSmsTemplateText() {
+  const template = String(process.env.SMS_INDIA_HUB_TEMPLATE_TEXT || "").trim();
+  if (!template) {
+    const error = new Error(
+      "SMS_INDIA_HUB_TEMPLATE_TEXT is not configured. Set the approved DLT template text in backend/.env",
+    );
+    error.statusCode = 500;
+    throw error;
+  }
+  return template;
+}
 
-  // Replace all common template placeholder styles (DLT, env, mustache, etc.)
+function replaceDltVarPlaceholders(template, values) {
+  let valueIndex = 0;
+  return template.replace(/##var##/gi, () => {
+    const value = values[Math.min(valueIndex, values.length - 1)] || "";
+    valueIndex += 1;
+    return value;
+  });
+}
+
+function replaceNamedPlaceholders(template, { appName, otpStr, minutesStr }) {
   let msg = template
     .replace(/\{\{OTP\}\}/gi, otpStr)
     .replace(/\{\{MINUTES\}\}/gi, minutesStr)
@@ -49,10 +60,7 @@ export function buildMessage(otp) {
     .replace(/\$\{appName\}/gi, appName)
     .replace(/\$\{APP_NAME\}/g, appName);
 
-  // DLT templates often use generic variable tokens. Replace them in a stable order
-  // so the generated content always matches the approved template wording.
   const genericPlaceholders = [
-    "##var##",
     "{#var#}",
     "{#VAR#}",
     "{#var1#}",
@@ -74,4 +82,17 @@ export function buildMessage(otp) {
   return msg;
 }
 
+export function buildMessage(otp) {
+  const template = getSmsTemplateText();
+  const minutes = parseInt(process.env.OTP_EXPIRY_MINUTES || "5", 10);
+  const appName = String(process.env.APP_NAME || "").trim();
+  const otpStr = String(otp);
+  const minutesStr = String(minutes);
+  const values = [appName, otpStr, minutesStr];
 
+  if (/##var##/i.test(template)) {
+    return replaceDltVarPlaceholders(template, values);
+  }
+
+  return replaceNamedPlaceholders(template, { appName, otpStr, minutesStr });
+}

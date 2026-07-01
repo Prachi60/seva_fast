@@ -9,7 +9,6 @@ function getSmsIndiaConfig() {
     senderId: String(process.env.SMS_INDIA_HUB_SENDER_ID || "").trim(),
     dltTemplateId: String(
       process.env.SMS_INDIA_HUB_DLT_TEMPLATE_ID ||
-        process.env.SMS_INDIA_HUB_TEMPLATE_ID ||
         "",
     ).trim(),
     gatewayId: String(process.env.SMS_INDIA_HUB_GWID || "2").trim(),
@@ -91,12 +90,14 @@ function mapSmsIndiaError(code) {
   return error;
 }
 
-export async function sendSmsIndiaHubOtp({ phone, otp, message }) {
+export async function sendSmsIndiaHubOtp({ phone, otp }) {
   const config = getSmsIndiaConfig();
   const requiredConfig = {
     apiKey: config.apiKey,
     senderId: config.senderId,
     url: config.url,
+    dltTemplateId: config.dltTemplateId,
+    templateText: String(process.env.SMS_INDIA_HUB_TEMPLATE_TEXT || "").trim(),
   };
   const missing = Object.entries(requiredConfig)
     .filter(([, value]) => !value)
@@ -113,20 +114,21 @@ export async function sendSmsIndiaHubOtp({ phone, otp, message }) {
       APIKey: config.apiKey,
       msisdn: toIndianNumber(phone),
       sid: config.senderId,
-      msg: message || buildMessage(otp),
+      msg: buildMessage(otp),
       fl: "0",
       gwid: config.gatewayId,
       ...(config.dltTemplateId
         ? {
             DLT_TE_ID: config.dltTemplateId,
-            TE_ID: config.dltTemplateId,
             dlttemplateid: config.dltTemplateId,
+            templateid: config.dltTemplateId,
           }
         : {}),
       ...(config.peId
         ? {
             PE_ID: config.peId,
             EntityId: config.peId,
+            entityid: config.peId,
           }
         : {}),
     },

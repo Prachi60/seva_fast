@@ -124,6 +124,8 @@ describe("sms OTP service", () => {
     process.env.SMS_INDIA_HUB_API_KEY = "api";
     process.env.SMS_INDIA_HUB_SENDER_ID = "SENDER";
     process.env.SMS_INDIA_HUB_DLT_TEMPLATE_ID = "template";
+    process.env.SMS_INDIA_HUB_TEMPLATE_TEXT =
+      "Welcome to the ##var## powered by Appzeto.Your OTP for registration is ##var##.BGADEC";
     process.env.SMS_INDIA_HUB_URL = "http://cloud.smsindiahub.in/vendorsms/pushsms.aspx";
 
     mockSellerFindOne.mockResolvedValue({ _id: "seller-1", phone: "9876543210" });

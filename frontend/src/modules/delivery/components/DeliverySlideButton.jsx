@@ -1,24 +1,13 @@
 import React, { useState, useEffect } from "react";
-import { motion } from "framer-motion";
+import { motion, useAnimation } from "framer-motion";
 import { ChevronRight, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { deliveryApi } from "../services/deliveryApi";
+import {
+  isSlideComplete,
+  useSlideDragMetrics,
+} from "@/shared/hooks/useSlideDragMetrics";
 
-/**
- * DeliverySlideButton - A slide-to-confirm button for delivery actions
- * 
- * This component handles the slide gesture to trigger OTP generation.
- * It calls the generate-otp endpoint which uses the delivery person's stored location
- * from the database for proximity validation.
- * 
- * @param {Object} props
- * @param {string} props.orderId - The order ID for OTP generation
- * @param {Function} props.onSuccess - Callback when OTP is successfully generated
- * @param {Function} props.onError - Callback when an error occurs
- * @param {string} props.label - Label text for the slide button (default: "SLIDE TO GENERATE OTP")
- * @param {string} props.bgColor - Background color class (default: "bg-black ")
- * @param {string} props.bgColorLight - Light background color class (default: "bg-brand-50")
- */
 const DeliverySlideButton = ({
   orderId,
   onSuccess,
@@ -29,58 +18,50 @@ const DeliverySlideButton = ({
   bgColor = "bg-black ",
   bgColorLight = "bg-brand-50",
 }) => {
-  const [isSlideComplete, setIsSlideComplete] = useState(false);
-  const [dragX, setDragX] = useState(0);
+  const [isSlideCompleteState, setIsSlideCompleteState] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const controls = useAnimation();
+  const { containerRef, handleRef, maxDrag } = useSlideDragMetrics(8);
 
-  // Reset slide state when orderId changes
+  const resetSlide = async () => {
+    setIsSlideCompleteState(false);
+    await controls.start({ x: 0 });
+  };
+
   useEffect(() => {
-    setIsSlideComplete(false);
-    setDragX(0);
+    resetSlide();
     setIsLoading(false);
   }, [orderId]);
 
-  const resetSlide = () => {
-    setIsSlideComplete(false);
-    setDragX(0);
-    setIsLoading(false);
-  };
-
-  /**
-   * Handle slide completion - generate OTP using stored location
-   */
-  const handleSlideComplete = async () => {
+  const handleSlideCompleteAction = async () => {
     setIsLoading(true);
 
     try {
-      // Call appropriate endpoint based on flow type
       const response = isReturnDrop
         ? await deliveryApi.requestReturnDropOtp(orderId, {})
         : isReturn
           ? await deliveryApi.requestReturnOtp(orderId, {})
           : await deliveryApi.generateDeliveryOtp(orderId);
 
-      // Handle success
       toast.success(response.data?.message || "OTP generated and sent to customer");
 
       if (onSuccess) {
         onSuccess(response.data);
       }
     } catch (error) {
-      // Handle different error types - standardized to check both root and result nested paths
       const errorPayload = error.response?.data?.result?.error || error.response?.data?.error;
-      const errorMessage = errorPayload?.message || error.response?.data?.message || error.message || "Failed to generate OTP";
+      const errorMessage =
+        errorPayload?.message || error.response?.data?.message || error.message || "Failed to generate OTP";
       const errorCode = errorPayload?.code;
 
-      // Display user-friendly error messages
       if (errorCode === "PROXIMITY_OUT_OF_RANGE") {
         const details = errorPayload?.details;
         const distance = details?.currentDistance;
         const range = details?.requiredRange || "0-300m";
 
         toast.error(
-          `You are too ${distance > 300 ? "far" : "close"}. You must be within ${range} of the delivery location. (Current: ${distance ? distance + 'm' : 'Unknown'})`,
-          { duration: 5000 }
+          `You are too ${distance > 300 ? "far" : "close"}. You must be within ${range} of the delivery location. (Current: ${distance ? `${distance}m` : "Unknown"})`,
+          { duration: 5000 },
         );
       } else if (errorCode === "LOCATION_REQUIRED" || errorCode === "LOCATION_STALE") {
         toast.error(errorMessage || "Location data is not available. Please ensure location tracking is enabled.");
@@ -96,26 +77,44 @@ const DeliverySlideButton = ({
         onError(error);
       }
 
-      resetSlide();
+      await resetSlide();
     } finally {
       setIsLoading(false);
     }
   };
 
+  const handleDragEnd = async (_, info) => {
+    if (isLoading) return;
+
+    if (isSlideComplete(info.offset.x, maxDrag)) {
+      setIsSlideCompleteState(true);
+      await controls.start({ x: maxDrag });
+      await handleSlideCompleteAction();
+      await resetSlide();
+    } else {
+      await resetSlide();
+    }
+  };
+
   return (
-    <div className="relative h-16 bg-gray-100 rounded-full overflow-hidden select-none">
-      {/* Label text */}
+    <div
+      ref={containerRef}
+      className="relative h-16 bg-gray-100 rounded-full overflow-hidden select-none touch-manipulation"
+      style={{ WebkitTouchCallout: "none" }}
+    >
       <motion.div
-        className={`absolute inset-0 flex items-center justify-center text-gray-400 font-bold text-sm pointer-events-none transition-opacity duration-300 ${dragX > 50 || isLoading ? "opacity-0" : "opacity-100"
-          }`}
+        className={`absolute inset-0 flex items-center justify-center text-gray-400 font-bold text-xs sm:text-sm pointer-events-none transition-opacity duration-300 ${
+          isSlideCompleteState || isLoading ? "opacity-0" : "opacity-100"
+        }`}
         animate={{ x: [0, 5, 0] }}
-        transition={{ repeat: Infinity, duration: 1.5 }}>
-        {label} <ChevronRight className="ml-1 inline" />
+        transition={{ repeat: Infinity, duration: 1.5 }}
+      >
+        <span className="px-16 text-center">{label}</span>
+        <ChevronRight className="ml-1 inline shrink-0" />
       </motion.div>
 
-      {/* Loading indicator */}
       {isLoading && (
-        <div className="absolute inset-0 flex items-center justify-center">
+        <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
           <Loader2 className="animate-spin text-primary" size={24} />
           <span className="ml-2 text-sm font-medium text-gray-600">
             {isReturn ? "Requesting OTP..." : "Generating OTP..."}
@@ -123,38 +122,20 @@ const DeliverySlideButton = ({
         </div>
       )}
 
-      {/* Progress background */}
       <motion.div
-        className={`absolute inset-y-0 left-0 ${bgColorLight} opacity-50`}
-        style={{ width: Math.min(dragX + 60, 340) }}
-      />
-
-      {/* Draggable button */}
-      <motion.div
-        className={`absolute top-1 bottom-1 left-1 w-14 rounded-full flex items-center justify-center shadow-md cursor-grab active:cursor-grabbing z-20 ${bgColor}`}
-        drag="x"
-        dragConstraints={{ left: 0, right: 280 }}
+        ref={handleRef}
+        className={`absolute top-1 bottom-1 left-1 w-14 rounded-full flex items-center justify-center shadow-md z-20 touch-none ${bgColor} ${
+          isLoading ? "pointer-events-none" : "cursor-grab active:cursor-grabbing"
+        }`}
+        drag={!isLoading ? "x" : false}
+        dragConstraints={{ left: 0, right: maxDrag }}
         dragElastic={0.05}
         dragMomentum={false}
-        onDrag={(_, info) => {
-          if (!isLoading) {
-            setDragX(Math.max(0, info.offset.x));
-          }
-        }}
-        onDragEnd={(_, info) => {
-          if (isLoading) return;
-
-          if (info.offset.x > 150) {
-            setIsSlideComplete(true);
-            handleSlideComplete();
-          } else {
-            setDragX(0);
-          }
-        }}
-        animate={{ x: isSlideComplete ? 280 : 0 }}
-        whileHover={{ scale: isLoading ? 1 : 1.05 }}
-        whileTap={{ scale: isLoading ? 1 : 0.95 }}
-        style={{ pointerEvents: isLoading ? "none" : "auto" }}>
+        onDragEnd={handleDragEnd}
+        animate={controls}
+        whileTap={!isLoading ? { scale: 0.95 } : undefined}
+        whileHover={!isLoading ? { scale: 1.05 } : undefined}
+      >
         <ChevronRight className="text-white" size={24} />
       </motion.div>
     </div>
